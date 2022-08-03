@@ -3,10 +3,10 @@ import os
 import networkx as nx
 from causal_testing.specification.causal_dag import CausalDAG, close_separator, list_all_min_sep
 from tests.test_helpers import create_temp_dir_if_non_existent, remove_temp_dir_if_existent
+from causal_testing.specification.conditional_independence import ConditionalIndependence
 
 
 class TestCausalDAG(unittest.TestCase):
-
     """
     Test the CausalDAG class for creation of Causal Directed Acyclic Graphs (DAGs).
 
@@ -113,7 +113,6 @@ class TestDAGIdentification(unittest.TestCase):
         self.assertEqual(list(indirect_graph.graph.edges), original_edges)
         self.assertEqual(indirect_graph.graph.nodes, causal_dag.graph.nodes)
 
-
     def test_proper_backdoor_graph(self):
         """Test whether converting a Causal DAG to a proper back-door graph works correctly."""
         causal_dag = CausalDAG(self.dag_dot_path)
@@ -146,7 +145,7 @@ class TestDAGIdentification(unittest.TestCase):
         )
 
     def test_constructive_backdoor_criterion_should_not_hold_not_d_separator_in_proper_backdoor_graph(
-        self,
+            self,
     ):
         """Test whether the constructive criterion fails when the adjustment set is not a d-separator."""
         causal_dag = CausalDAG(self.dag_dot_path)
@@ -159,7 +158,7 @@ class TestDAGIdentification(unittest.TestCase):
         )
 
     def test_constructive_backdoor_criterion_should_not_hold_descendent_of_proper_causal_path(
-        self,
+            self,
     ):
         """Test whether the constructive criterion holds when the adjustment set Z contains a descendent of a variable
         on a proper causal path between X and Y."""
@@ -352,7 +351,6 @@ class TestDependsOnOutputs(unittest.TestCase):
 
 
 class TestUndirectedGraphAlgorithms(unittest.TestCase):
-
     """
     Test the graph algorithms designed for the undirected graph variants of a Causal DAG.
     During the identification process, a Causal DAG is converted into several forms of undirected graph which allow for
@@ -399,3 +397,39 @@ class TestUndirectedGraphAlgorithms(unittest.TestCase):
 
     def tearDown(self) -> None:
         remove_temp_dir_if_existent()
+
+
+class TestImpliedConditionalIndependencies(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.graph = CausalDAG()
+        self.graph.graph.add_nodes_from(["X", "Y"])
+
+    def test_unconditional_independence(self):
+        cis = self.graph.list_conditional_independencies()
+        self.assertEqual([ConditionalIndependence("X", "Y")], cis)
+
+    def test_unconditional_independence_with_effect_modifier(self):
+        self.graph.graph.add_edge("Z", "Y")
+        cis = self.graph.list_conditional_independencies()
+        self.assertEqual([ConditionalIndependence("X", "Y"),
+                          ConditionalIndependence("X", "Z")], cis)
+
+    def test_conditional_independence_with_confounder(self):
+        self.graph.graph.add_edges_from([("Z", "X"), ("Z", "Y")])
+        cis = self.graph.list_conditional_independencies()
+        self.assertEqual([ConditionalIndependence("X", "Y", "Z")], cis)
+
+
+    # TODO: Find a way to test CIT where ordering doesn't matter
+    # def test_conditional_independence_with_confounders(self):
+    #     self.graph.graph.add_edges_from([("Z1", "X"), ("Z2", "Z1"), ("Z2", "Y")])
+    #     cis = self.graph.list_conditional_independencies()
+    #     cis.sort()
+    #     self.assertEqual([ConditionalIndependence("X", "Y", "Z2"),
+    #                       ConditionalIndependence("X", "Y", "Z1"),
+    #                       ConditionalIndependence("X", "Y", {"Z1", "Z2"}),
+    #                       ConditionalIndependence("X", "Z2", "Z1"),
+    #                       ConditionalIndependence("X", "Z2", {"Y", "Z1"}),
+    #                       ConditionalIndependence("Y", "Z1", "Z2"),
+    #                       ConditionalIndependence("Y", "Z1", {"X", "Z2"})], cis)
