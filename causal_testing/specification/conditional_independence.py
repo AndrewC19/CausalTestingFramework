@@ -42,23 +42,3 @@ class ConditionalIndependence:
         if self.Z != other.Z:
             return False
         return True
-
-    def __lt__(self, other):
-        if self.X < other.X:
-            return True
-        if self.X > other.X:
-            return False
-
-        # X is equal, consider Y
-        if self.Y < other.Y:
-            return True
-        if self.Y > other.Y:
-            return False
-
-        # X and Y are both equal, consider Z
-        if self.Z < other.Z:
-            return True
-        if self.Z > other.Z:
-            return False
-
-

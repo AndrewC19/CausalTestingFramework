@@ -413,23 +413,26 @@ class TestImpliedConditionalIndependencies(unittest.TestCase):
         self.graph.graph.add_edge("Z", "Y")
         cis = self.graph.list_conditional_independencies()
         self.assertEqual([ConditionalIndependence("X", "Y"),
-                          ConditionalIndependence("X", "Z")], cis)
+                          ConditionalIndependence("X", "Y", {"Z"}),
+                          ConditionalIndependence("X", "Z"),
+                          ConditionalIndependence("X", "Z", {"Y"})], cis)
 
     def test_conditional_independence_with_confounder(self):
         self.graph.graph.add_edges_from([("Z", "X"), ("Z", "Y")])
         cis = self.graph.list_conditional_independencies()
-        self.assertEqual([ConditionalIndependence("X", "Y", "Z")], cis)
+        self.assertEqual([ConditionalIndependence("X", "Y", {"Z"})], cis)
 
+    def test_conditional_independence_with_confounders(self):
+        self.graph.graph.add_edges_from([("Z1", "X"), ("Z2", "Z1"), ("Z2", "Y")])
+        cis = self.graph.list_conditional_independencies()
+        expected_cis = [ConditionalIndependence("X", "Y", {"Z1"}),
+                        ConditionalIndependence("X", "Y", {"Z2"}),
+                        ConditionalIndependence("X", "Y", {"Z1", "Z2"}),
+                        ConditionalIndependence("X", "Z2", {"Z1"}),
+                        ConditionalIndependence("X", "Z2", {"Y", "Z1"}),
+                        ConditionalIndependence("Y", "Z1", {"Z2"}),
+                        ConditionalIndependence("Y", "Z1", {"X", "Z2"})]
+        difference = [ci for ci in expected_cis if ci not in cis]
 
-    # TODO: Find a way to test CIT where ordering doesn't matter
-    # def test_conditional_independence_with_confounders(self):
-    #     self.graph.graph.add_edges_from([("Z1", "X"), ("Z2", "Z1"), ("Z2", "Y")])
-    #     cis = self.graph.list_conditional_independencies()
-    #     cis.sort()
-    #     self.assertEqual([ConditionalIndependence("X", "Y", "Z2"),
-    #                       ConditionalIndependence("X", "Y", "Z1"),
-    #                       ConditionalIndependence("X", "Y", {"Z1", "Z2"}),
-    #                       ConditionalIndependence("X", "Z2", "Z1"),
-    #                       ConditionalIndependence("X", "Z2", {"Y", "Z1"}),
-    #                       ConditionalIndependence("Y", "Z1", "Z2"),
-    #                       ConditionalIndependence("Y", "Z1", {"X", "Z2"})], cis)
+        self.assertEqual([], difference)  # All of the expected CIs are identified
+        self.assertEqual(len(cis), len(expected_cis))  # No extra CIs are identified

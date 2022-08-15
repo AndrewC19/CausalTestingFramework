@@ -501,7 +501,6 @@ class CausalDAG(nx.DiGraph):
     def list_conditional_independencies(self):
         """List all conditional independence relationships implied by a DAG."""
         cis = []
-        print("SELF", self.graph)
         if len(self.graph.nodes) < 2:
             return None
         for node_pair in combinations(self.graph.nodes, 2):
@@ -513,9 +512,9 @@ class CausalDAG(nx.DiGraph):
             # Consider adjustment sets of increasing size
             for Z_size in range(1, len(nodes)+1):
                 for Z in combinations(nodes, Z_size):
-                    Z_list = list(Z)
-                    if nx.d_separated(self.graph, {X}, {Y}, set(Z_list)):
-                        cis.append(ConditionalIndependence(X, Y, Z))
+                    Z_set = set(list(Z))
+                    if nx.d_separated(self.graph, {X}, {Y}, Z_set):
+                        cis.append(ConditionalIndependence(X, Y, Z_set))
 
         return cis
 
