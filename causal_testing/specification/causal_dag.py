@@ -535,8 +535,14 @@ class CausalDAG(nx.DiGraph):
             ]
         )
 
-    def list_conditional_independencies(self, minimal_set=False):
-        """List all conditional independence relationships implied by a DAG."""
+    def list_conditional_independence_relationships(self, minimal_set: bool = False):
+        """List all conditional independence relationships implied by a DAG.
+
+        :param bool minimal_set: Whether to only output minimal sized conditional independence relationships for each
+                                 unique pair of variables in the DAG.
+        :return: A list of conditional independence relationships implied by the DAG.
+        :rtype: list
+        """
         conditional_independence_relationships = []
         if len(self.graph.nodes) < 2:
             return None
