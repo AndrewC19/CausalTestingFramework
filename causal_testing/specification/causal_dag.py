@@ -537,32 +537,33 @@ class CausalDAG(nx.DiGraph):
 
     def list_conditional_independencies(self, minimal_set=False):
         """List all conditional independence relationships implied by a DAG."""
-        cis = []
+        conditional_independence_relationships = []
         if len(self.graph.nodes) < 2:
             return None
+
         for node_pair in combinations(self.graph.nodes, 2):
-            X, Y = node_pair
+            x, y = node_pair
             nodes = set(self.graph.nodes) - set(node_pair)
 
-            # Check if X and Y are unconditionally independent
-            if nx.d_separated(self.graph, {X}, {Y}, set()):
-                cis.append(ConditionalIndependence(X, Y))
+            # Check unconditional independence relationships
+            if nx.d_separated(self.graph, {x}, {y}, set()):
+                conditional_independence_relationships.append(ConditionalIndependence(x, y))
 
-            # Consider adjustment sets of increasing size
+            # Check conditional independence relationships by considering adjustment sets of increasing size
             min_adjustment_set_size = inf
-            for Z_size in range(1, len(nodes) + 1):
-                for Z in combinations(nodes, Z_size):
-                    Z_set = set(list(Z))
-                    if nx.d_separated(self.graph, {X}, {Y}, Z_set):
-                        cis.append(ConditionalIndependence(X, Y, Z_set))
-                        min_adjustment_set_size = Z_size
+            for adjustment_set_size in range(1, len(nodes) + 1):
+                for zs in combinations(nodes, adjustment_set_size):
+                    zs_set = set(list(zs))
+                    if nx.d_separated(self.graph, {x}, {y}, zs_set):
+                        conditional_independence_relationships.append(ConditionalIndependence(x, y, zs_set))
+                        min_adjustment_set_size = adjustment_set_size
 
                 # To obtain minimal sized adjustment sets, stop searching after finding all adjustment sets of the
                 # smallest size
                 if minimal_set and (min_adjustment_set_size < inf):
                     break
 
-        return cis
+        return conditional_independence_relationships
 
     def __str__(self):
         return f"Nodes: {self.graph.nodes}\nEdges: {self.graph.edges}"
