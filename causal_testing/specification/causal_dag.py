@@ -547,7 +547,9 @@ class CausalDAG(nx.DiGraph):
 
             # Check unconditional independence relationships
             if nx.d_separated(self.graph, {x}, {y}, set()):
-                conditional_independence_relationships.append(ConditionalIndependence(x, y))
+                conditional_independence_relationships.append(
+                    ConditionalIndependence(x, y)
+                )
 
             # Check conditional independence relationships by considering adjustment sets of increasing size
             min_adjustment_set_size = inf
@@ -555,7 +557,9 @@ class CausalDAG(nx.DiGraph):
                 for zs in combinations(nodes, adjustment_set_size):
                     zs_set = set(list(zs))
                     if nx.d_separated(self.graph, {x}, {y}, zs_set):
-                        conditional_independence_relationships.append(ConditionalIndependence(x, y, zs_set))
+                        conditional_independence_relationships.append(
+                            ConditionalIndependence(x, y, zs_set)
+                        )
                         min_adjustment_set_size = adjustment_set_size
 
                 # To obtain minimal sized adjustment sets, stop searching after finding all adjustment sets of the
