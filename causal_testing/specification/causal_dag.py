@@ -540,16 +540,16 @@ class CausalDAG(nx.DiGraph):
     ):
         """List all conditional independence relationships implied by a DAG.
 
-        :param bool search_heuristic: A string representing the choice of search heuristic to employ in order to reduce
-                                      the number of listed conditional independence relationships. The following
-                                      heuristics are available:
-                                      minimal: output minimal sized conditional independence relationships for each
-                                               unique pair of variables in the DAG.
-                                      maximal: output maximal sized conditional independence relationships for each
-                                               unique pair of variables in the DAG.
-                                      all: output all conditional independence relationships for each unique pair of
-                                           variables in the DAG. Warning: this can produce an extremely large number
-                                           of conditional independence relationships.
+        :param str search_heuristic: A string representing the choice of search heuristic to employ in order to reduce
+                                     the number of listed conditional independence relationships. The following
+                                     heuristics are available:
+                                     minimal: output minimal sized conditional independence relationships for each
+                                              unique pair of variables in the DAG.
+                                     maximal: output maximal sized conditional independence relationships for each
+                                              unique pair of variables in the DAG.
+                                     all: output all conditional independence relationships for each unique pair of
+                                          variables in the DAG. Warning: this can produce an extremely large number
+                                          of conditional independence relationships.
 
         :return: A list of conditional independence relationships implied by the DAG.
         :rtype: list
