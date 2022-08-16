@@ -535,11 +535,22 @@ class CausalDAG(nx.DiGraph):
             ]
         )
 
-    def list_conditional_independence_relationships(self, minimal_set: bool = False):
+    def list_conditional_independence_relationships(
+        self, search_heuristic: str = "minimal"
+    ):
         """List all conditional independence relationships implied by a DAG.
 
-        :param bool minimal_set: Whether to only output minimal sized conditional independence relationships for each
-                                 unique pair of variables in the DAG.
+        :param bool search_heuristic: A string representing the choice of search heuristic to employ in order to reduce
+                                      the number of listed conditional independence relationships. The following
+                                      heuristics are available:
+                                      minimal: output minimal sized conditional independence relationships for each
+                                               unique pair of variables in the DAG.
+                                      maximal: output maximal sized conditional independence relationships for each
+                                               unique pair of variables in the DAG.
+                                      all: output all conditional independence relationships for each unique pair of
+                                           variables in the DAG. Warning: this can produce an extremely large number
+                                           of conditional independence relationships.
+
         :return: A list of conditional independence relationships implied by the DAG.
         :rtype: list
         """
@@ -558,19 +569,28 @@ class CausalDAG(nx.DiGraph):
                 )
 
             # Check conditional independence relationships by considering adjustment sets of increasing size
-            min_adjustment_set_size = inf
-            for adjustment_set_size in range(1, len(nodes) + 1):
+            current_adjustment_set_size = inf
+            start = 1
+            end = len(nodes) + 1
+            step = 1
+
+            # For the maximal setting, consider adjustment sets of decreasing size
+            if search_heuristic == "maximal":
+                step = -1
+                start, end = end, start
+
+            for adjustment_set_size in range(start, end, step):
                 for zs in combinations(nodes, adjustment_set_size):
                     zs_set = set(list(zs))
                     if nx.d_separated(self.graph, {x}, {y}, zs_set):
                         conditional_independence_relationships.append(
                             ConditionalIndependence(x, y, zs_set)
                         )
-                        min_adjustment_set_size = adjustment_set_size
+                        current_adjustment_set_size = adjustment_set_size
 
-                # To obtain minimal sized adjustment sets, stop searching after finding all adjustment sets of the
-                # smallest size
-                if minimal_set and (min_adjustment_set_size < inf):
+                # To obtain minimal or maximal sized adjustment sets, stop searching after finding the first adjustment
+                # set size that yields adjustments
+                if (search_heuristic != "all") and (current_adjustment_set_size < inf):
                     break
 
         return conditional_independence_relationships

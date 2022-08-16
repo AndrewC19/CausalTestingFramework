@@ -406,12 +406,12 @@ class TestImpliedConditionalIndependencies(unittest.TestCase):
         self.graph.graph.add_nodes_from(["X", "Y"])
 
     def test_unconditional_independence(self):
-        cis = self.graph.list_conditional_independencies()
+        cis = self.graph.list_conditional_independence_relationships()
         self.assertEqual([ConditionalIndependence("X", "Y")], cis)
 
     def test_unconditional_independence_with_effect_modifier(self):
         self.graph.graph.add_edge("Z", "Y")
-        cis = self.graph.list_conditional_independencies()
+        cis = self.graph.list_conditional_independence_relationships()
         self.assertEqual([ConditionalIndependence("X", "Y"),
                           ConditionalIndependence("X", "Y", {"Z"}),
                           ConditionalIndependence("X", "Z"),
@@ -419,12 +419,12 @@ class TestImpliedConditionalIndependencies(unittest.TestCase):
 
     def test_conditional_independence_with_confounder(self):
         self.graph.graph.add_edges_from([("Z", "X"), ("Z", "Y")])
-        cis = self.graph.list_conditional_independencies()
+        cis = self.graph.list_conditional_independence_relationships()
         self.assertEqual([ConditionalIndependence("X", "Y", {"Z"})], cis)
 
     def test_conditional_independence_with_confounders(self):
         self.graph.graph.add_edges_from([("Z1", "X"), ("Z2", "Z1"), ("Z2", "Y")])
-        cis = self.graph.list_conditional_independencies()
+        cis = self.graph.list_conditional_independence_relationships()
         expected_cis = [ConditionalIndependence("X", "Y", {"Z1"}),
                         ConditionalIndependence("X", "Y", {"Z2"}),
                         ConditionalIndependence("X", "Y", {"Z1", "Z2"}),
@@ -436,3 +436,22 @@ class TestImpliedConditionalIndependencies(unittest.TestCase):
 
         self.assertEqual([], difference)  # All of the expected CIs are identified
         self.assertEqual(len(cis), len(expected_cis))  # No extra CIs are identified
+
+    # def test_ten_node_chain(self):
+    #     self.graph.graph.add_edges_from([("X", "Z1"), ("Z1", "Z2"), ("Z2", "Z3"), ("Z3", "Z4"), ("Z4", "Z5"),
+    #                                      ("Z5", "Z6"), ("Z6", "Z7"), ("Z7", "Z8"), ("Z8", "Y"), ("Z9", "X"),
+    #                                      ("Z9", "Y")])
+    #     cis = self.graph.list_conditional_independence_relationships(search_heuristic="maximal")
+    #     print(len(cis))
+    #     print(cis)
+    #     # expected_cis = [ConditionalIndependence("X", "Y", {"Z1"}),
+    #     #                 ConditionalIndependence("X", "Y", {"Z2"}),
+    #     #                 ConditionalIndependence("X", "Y", {"Z1", "Z2"}),
+    #     #                 ConditionalIndependence("X", "Z2", {"Z1"}),
+    #     #                 ConditionalIndependence("X", "Z2", {"Y", "Z1"}),
+    #     #                 ConditionalIndependence("Y", "Z1", {"Z2"}),
+    #     #                 ConditionalIndependence("Y", "Z1", {"X", "Z2"})]
+    #     # difference = [ci for ci in expected_cis if ci not in cis]
+    #     #
+    #     # self.assertEqual([], difference)  # All of the expected CIs are identified
+    #     # self.assertEqual(len(cis), len(expected_cis))  # No extra CIs are identified
