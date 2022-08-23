@@ -1,11 +1,11 @@
-from typing import Set, Union
+from typing import Set
 from collections import Iterable
 
 
 class ConditionalIndependence:
     """Store and print conditional independence relations in the form X⫫Y|{Z1, Z2, ..., Zn}."""
 
-    def __init__(self, X: str, Y: str, Z: Union[Set[str], str] = None):
+    def __init__(self, X: str, Y: str, Z: Set[str] = None):
         self.X = X
         self.Y = Y
         self.Z = Z if Z is not None else []
@@ -13,15 +13,12 @@ class ConditionalIndependence:
     def __str__(self):
         base_str = f"{self.X}⫫{self.Y}"
         if self.Z:
-            if isinstance(self.Z, Iterable) and not isinstance(self.Z, str):
-                zs_list = list(self.Z)
-                zs_list.sort()
-                adjustment_set_str = "{"
-                for z in zs_list:
-                    adjustment_set_str += f"{z}, "
-                adjustment_set_str = adjustment_set_str[:-2] + "}"
-            else:
-                adjustment_set_str = f"{{{self.Z}}}"
+            zs_list = list(self.Z)
+            zs_list.sort()
+            adjustment_set_str = "{"
+            for z in zs_list:
+                adjustment_set_str += f"{z}, "
+            adjustment_set_str = adjustment_set_str[:-2] + "}"
             base_str += f"|{adjustment_set_str}"
         return base_str
 
