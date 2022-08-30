@@ -545,6 +545,8 @@ class CausalDAG(nx.DiGraph):
                                      heuristics are available:
                                      minimal: output minimal sized conditional independence relationships for each
                                               unique pair of variables in the DAG.
+                                     min_direct: as "minimal" except that any variables with a direct causal effect
+                                              are included in Z
                                      maximal: output maximal sized conditional independence relationships for each
                                               unique pair of variables in the DAG.
                                      all: output all conditional independence relationships for each unique pair of
@@ -581,6 +583,8 @@ class CausalDAG(nx.DiGraph):
 
             for adjustment_set_size in range(start, end, step):
                 for zs in combinations(nodes, adjustment_set_size):
+                    if search_heuristic == "min_direct":
+                        zs += tuple(self.graph.predecessors(y))
                     zs_set = set(list(zs))
                     if nx.d_separated(self.graph, {x}, {y}, zs_set):
                         conditional_independence_relationships.append(
