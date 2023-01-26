@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from causal_testing.testing.causal_test_result import CausalTestResult
 import numpy as np
+import logging
 
+logger = logging.getLogger(__name__)
 
 class CausalTestOutcome(ABC):
     """An abstract class representing an expected causal effect."""
@@ -71,7 +73,11 @@ class NoEffect(CausalTestOutcome):
 
     def apply(self, res: CausalTestResult) -> bool:
         if res.test_value.type == "ate":
-            return (res.ci_low() < 0 < res.ci_high()) or (abs(res.test_value.value) < 1e-10)
+            if res.ci_low() and res.ci_high():
+                return (res.ci_low() < 0 < res.ci_high()) or (abs(res.test_value.value) < 1e-10)
+            else:
+                logger.warning("No confidence intervals for estimate. Using ATE alone.")
+                return abs(res.test_value.value) < 1e-10
         elif res.test_value.type == "risk_ratio":
             return (res.ci_low() < 1 < res.ci_high()) or np.isclose(res.test_value.value, 1.0, atol=1e-10)
 

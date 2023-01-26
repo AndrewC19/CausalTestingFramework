@@ -122,7 +122,7 @@ class CausalTestEngine:
         if self._check_positivity_violation(variables_for_positivity):
             # TODO: We should allow users to continue because positivity can be overcome with parametric models
             # TODO: When we implement causal contracts, we should also note the positivity violation there
-            raise Exception("POSITIVITY VIOLATION -- Cannot proceed.")
+            raise Exception(f"POSITIVITY VIOLATION with {variables_for_positivity} -- Cannot proceed.")
 
         # TODO: Some estimators also return the CATE. Find the best way to add this into the causal test engine.
         if estimate_type == "cate":

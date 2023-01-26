@@ -153,6 +153,8 @@ class JsonUtility(ABC):
             meta.populate(self.data)
 
         for var in self.metas + self.outputs:
+            if var.name not in self.data:
+                raise Exception(f"{var.name} not in data. Available columns: {sorted(self.data.columns)}")
             if not var.distribution:
                 fitter = Fitter(self.data[var.name], distributions=get_common_distributions())
                 fitter.fit()

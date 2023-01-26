@@ -70,8 +70,8 @@ class Estimator(ABC):
     @abstractmethod
     def estimate_ate(self) -> float:
         """
-        Estimate the unit effect of the treatment on the outcome. That is, the coefficient of the treatment variable
-        in the linear regression equation.
+        Estimate the :term:`ATE<ATE>`.
+
         :return: The intercept and coefficient of the linear regression equation
         """
 
@@ -463,7 +463,7 @@ class LinearRegressionEstimator(Estimator):
 
         return (treatment_outcome["mean"] - control_outcome["mean"]), [ci_low, ci_high]
 
-    def estimate_cates(self) -> tuple[float, list[float, float]]:
+    def estimate_cates(self, adjustment_config: dict = None) -> tuple[float, list[float, float]]:
         """Estimate the conditional average treatment effect of the treatment on the outcome. That is, the change
         in outcome caused by changing the treatment variable from the control value to the treatment value.
 
@@ -472,20 +472,34 @@ class LinearRegressionEstimator(Estimator):
         assert (
             self.effect_modifiers
         ), f"Must have at least one effect modifier to compute CATE - {self.effect_modifiers}."
+
+        model = self._run_linear_regression()
+
+        if adjustment_config is None:
+            adjustment_config = dict()
+
         x = pd.DataFrame()
         x[self.treatment[0]] = [self.treatment_values, self.control_values]
         x["Intercept"] = self.intercept
-        for k, v in self.effect_modifiers.items():
-            self.adjustment_set.add(k)
+        for k, v in adjustment_config.items():
             x[k] = v
-        if hasattr(self, "square_terms"):
-            for t in self.square_terms:
-                x[t + "^2"] = x[t] ** 2
-        if hasattr(self, "product_terms"):
-            for a, b in self.product_terms:
-                x[f"{a}*{b}"] = x[a] * x[b]
+        for k, v in self.effect_modifiers.items():
+            x[k] = v
+        for t in self.square_terms:
+            x[t + "^2"] = x[t] ** 2
+        for t in self.inverse_terms:
+            x["1/" + t] = 1 / x[t]
+        for a, b in self.product_terms:
+            x[f"{a}*{b}"] = x[a] * x[b]
+        for col in x:
+            if str(x.dtypes[col]) == "object":
+                for c in set(self.df[col]):
+                    if f"{col}_{c}" in model.params.index:
+                        x[f"{col}_{c}"] = [c_prime == c for c_prime in x[col]]
+                x.drop(col, axis=1, inplace=True)
 
-        model = self._run_linear_regression()
+        x = x[model.params.index]
+
         y = model.predict(x)
         treatment_outcome = y.iloc[0]
         control_outcome = y.iloc[1]
@@ -503,7 +517,7 @@ class LinearRegressionEstimator(Estimator):
         missing_rows = reduced_df[necessary_cols].isnull().any(axis=1)
         reduced_df = reduced_df[~missing_rows]
         reduced_df = reduced_df.sort_values(list(self.treatment))
-        logger.debug(reduced_df[necessary_cols])
+        logger.info("Necessary columns: %s", reduced_df[necessary_cols])
 
         # 2. Add intercept
         reduced_df["Intercept"] = self.intercept
@@ -518,6 +532,7 @@ class LinearRegressionEstimator(Estimator):
                 treatment_and_adjustments_cols = pd.get_dummies(
                     treatment_and_adjustments_cols, columns=[col], drop_first=True
                 )
+
         regression = sm.OLS(outcome_col, treatment_and_adjustments_cols)
         model = regression.fit()
         return model
