@@ -119,6 +119,12 @@ class AbstractCausalTestCase:
                 )
             model = optimizer.model()
 
+            effect_modifier_configuration = {}
+            if isinstance(self.effect_modifiers, dict):
+                effect_modifier_configuration = self.effect_modifiers
+            else:
+                effect_modifier_configuration = {v: v.cast(model[v.z3]) for v in self.effect_modifiers}
+
             concrete_test = CausalTestCase(
                 control_input_configuration={v: v.cast(model[v.z3]) for v in [self.treatment_variable]},
                 treatment_input_configuration={
@@ -127,7 +133,7 @@ class AbstractCausalTestCase:
                 expected_causal_effect=list(self.expected_causal_effect.values())[0],
                 outcome_variables=list(self.expected_causal_effect.keys()),
                 estimate_type=self.estimate_type,
-                effect_modifier_configuration={v: v.cast(model[v.z3]) for v in self.effect_modifiers},
+                effect_modifier_configuration=effect_modifier_configuration,
                 effect=self.effect,
             )
 
@@ -214,12 +220,15 @@ class AbstractCausalTestCase:
             # ks_stats = {var: stats.kstest(both_configs[var], var.distribution.cdf).statistic for var in
             # both_configs.columns}
             effect_modifier_configs = pd.DataFrame([test.effect_modifier_configuration for test in concrete_tests])
-            ks_stats.update(
-                {
-                    var: stats.kstest(effect_modifier_configs[var], var.distribution.cdf).statistic
-                    for var in effect_modifier_configs.columns
-                }
-            )
+
+            # We don't want to test ks coverage of effect modifier space if a concrete configuration is specified.
+            if not isinstance(self.effect_modifiers, dict):
+                ks_stats.update(
+                    {
+                        var: stats.kstest(effect_modifier_configs[var], var.distribution.cdf).statistic
+                        for var in effect_modifier_configs.columns
+                    }
+                )
             control_values = [test.control_input_configuration[self.treatment_variable] for test in concrete_tests]
             treatment_values = [test.treatment_input_configuration[self.treatment_variable] for test in concrete_tests]
 

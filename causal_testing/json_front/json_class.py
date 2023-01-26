@@ -50,6 +50,7 @@ class JsonUtility(ABC):
         self.test_plan = None
         self.modelling_scenario = None
         self.causal_specification = None
+        self.target_ks_score = 0.05
         self.setup_logger(log_path)
 
     def set_path(self, json_path: str, dag_path: str, data_path: str):
@@ -90,6 +91,13 @@ class JsonUtility(ABC):
 
     def _create_abstract_test_case(self, test, mutates, effects):
         assert len(test["mutations"]) == 1
+        effect_modifiers = {}
+        if "effect_modifiers" in test:
+            if isinstance(test["effect_modifiers"], dict):
+                effect_modifiers = {self.modelling_scenario.variables[k]: self.modelling_scenario.variables[k].cast(v) for k, v in test["effect_modifiers"].items()}
+            else:
+                effect_modifiers = {self.modelling_scenario.variables[v] for v in test["effect_modifiers"]}
+        self.target_ks_score = test.get("target_ks_score", 0.05)
         abstract_test = AbstractCausalTestCase(
             scenario=self.modelling_scenario,
             intervention_constraints=[mutates[v](k) for k, v in test["mutations"].items()],
@@ -98,11 +106,9 @@ class JsonUtility(ABC):
                 self.modelling_scenario.variables[variable]: effects[effect]
                 for variable, effect in test["expectedEffect"].items()
             },
-            effect_modifiers={self.modelling_scenario.variables[v] for v in test["effect_modifiers"]}
-            if "effect_modifiers" in test
-            else {},
+            effect_modifiers=effect_modifiers,
             estimate_type=test["estimate_type"],
-            effect=test.get("effect", "total"),
+            effect=test.get("effect", "total")
         )
         return abstract_test
 
@@ -120,7 +126,7 @@ class JsonUtility(ABC):
                 continue
             abstract_test = self._create_abstract_test_case(test, mutates, effects)
 
-            concrete_tests, dummy = abstract_test.generate_concrete_tests(5, 0.05)
+            concrete_tests, dummy = abstract_test.generate_concrete_tests(5, self.target_ks_score)
             logger.info("Executing test: %s", test["name"])
             logger.info(abstract_test)
             logger.info([(v.name, v.distribution) for v in [abstract_test.treatment_variable]])
