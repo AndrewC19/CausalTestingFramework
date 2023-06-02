@@ -56,13 +56,15 @@ class JsonUtility:
         self.output_path = Path(output_path)
         self.check_file_exists(self.output_path, output_overwrite)
 
-    def set_paths(self, json_path: str, dag_path: str, data_paths: str):
+    def set_paths(self, json_path: str, dag_path: str, data_paths: list[str] = None):
         """
         Takes a path of the directory containing all scenario specific files and creates individual paths for each file
         :param json_path: string path representation to .json file containing test specifications
         :param dag_path: string path representation to the .dot file containing the Causal DAG
         :param data_paths: string path representation to the data files
         """
+        if data_paths is None:
+            data_paths = []
         self.input_paths = JsonClassPaths(json_path=json_path, dag_path=dag_path, data_paths=data_paths)
 
     def setup(self, scenario: Scenario):
@@ -73,7 +75,12 @@ class JsonUtility:
         self.causal_specification = CausalSpecification(
             scenario=self.scenario, causal_dag=CausalDAG(self.input_paths.dag_path)
         )
-        self._json_parse()
+        # Parse the JSON test plan
+        with open(self.input_paths.json_path, encoding="utf-8") as f:
+            self.test_plan = json.load(f)
+        # Populate the data
+        if self.input_paths.data_paths:
+            self.data = pd.concat([pd.read_csv(data_file, header=0) for data_file in self.input_paths.data_paths])
         self._populate_metas()
 
     def _create_abstract_test_case(self, test, mutates, effects):
@@ -113,7 +120,8 @@ class JsonUtility:
         """
         failures = 0
         msg = ""
-        for test in self.test_plan["tests"]:
+        total_tests = len(self.test_plan["tests"])
+        for i, test in enumerate(self.test_plan["tests"]):
             if "skip" in test and test["skip"]:
                 continue
             test["estimator"] = estimators[test["estimator"]]
@@ -135,22 +143,24 @@ class JsonUtility:
                             self.scenario.variables[v] for v in test.get("effect_modifiers", [])
                         },
                     )
+                    msg = f"Executing test ({i+1}/{total_tests}): {test['name']} \n {causal_test_case} \n"
+                    print("=" * 10 + "\n" + msg)
                     result = self._execute_test_case(causal_test_case=causal_test_case, test=test, f_flag=f_flag)
-                    msg = (
-                        f"Executing test: {test['name']} \n"
-                        + f"  {causal_test_case} \n"
-                        + "  "
+                    msg2 = (
+                        "  "
                         + ("\n  ").join(str(result[1]).split("\n"))
                         + "==============\n"
                         + f"  Result: {'FAILED' if result[0] else 'Passed'}"
                     )
+                    print(msg2)
+                    msg += msg2
                 else:
                     abstract_test = self._create_abstract_test_case(test, mutates, effects)
                     concrete_tests, _ = abstract_test.generate_concrete_tests(5, 0.05)
                     failures, _ = self._execute_tests(concrete_tests, test, f_flag)
 
                     msg = (
-                        f"Executing test: {test['name']} \n"
+                        f"Executing test ({i+1}/{total_tests}): {test['name']} \n"
                         + "  abstract_test \n"
                         + f"  {abstract_test} \n"
                         + f"  {abstract_test.treatment_variable.name},"
@@ -198,15 +208,6 @@ class JsonUtility:
                 failures += 1
         return failures, details
 
-    def _json_parse(self):
-        """Parse a JSON input file into inputs, outputs, metas and a test plan"""
-        with open(self.input_paths.json_path, encoding="utf-8") as f:
-            self.test_plan = json.load(f)
-        for data_file in self.input_paths.data_paths:
-            df = pd.read_csv(data_file, header=0)
-            self.data.append(df)
-        self.data = pd.concat(self.data)
-
     def _populate_metas(self):
         """
         Populate data with meta-variable values and add distributions to Causal Testing Framework Variables
@@ -228,7 +229,10 @@ class JsonUtility:
         failed = False
 
         causal_test_engine, estimation_model = self._setup_test(
-            causal_test_case, test, test["conditions"] if "conditions" in test else None
+            causal_test_case,
+            test,
+            test["conditions"] if "conditions" in test else None,
+            test["preprocessor"] if "preprocessor" in test else None,
         )
         causal_test_result = causal_test_engine.execute_test(
             estimation_model, causal_test_case, estimate_type=causal_test_case.estimate_type
@@ -236,7 +240,7 @@ class JsonUtility:
 
         test_passes = causal_test_case.expected_causal_effect.apply(causal_test_result)
 
-        if causal_test_result.ci_low() and causal_test_result.ci_high():
+        if causal_test_result.ci_low() is not None and causal_test_result.ci_high() is not None:
             result_string = (
                 f"{causal_test_result.ci_low()} < {causal_test_result.test_value.value} <  "
                 f"{causal_test_result.ci_high()}"
@@ -255,7 +259,7 @@ class JsonUtility:
         return failed, causal_test_result
 
     def _setup_test(
-        self, causal_test_case: CausalTestCase, test: Mapping, conditions: list[str] = None
+        self, causal_test_case: CausalTestCase, test: Mapping, conditions: list[str] = None, preprocessor=None
     ) -> tuple[CausalTestEngine, Estimator]:
         """Create the necessary inputs for a single test case
         :param causal_test_case: The concrete test case to be executed
@@ -268,8 +272,12 @@ class JsonUtility:
                 - estimation_model - Estimator instance for the test being run
         """
 
+        data = self.data.copy()
+        if preprocessor:
+            data = preprocessor(data)
+
         data_collector = ObservationalDataCollector(
-            self.scenario, self.data.query(" & ".join(conditions)) if conditions else self.data
+            self.scenario, data.query(" & ".join(conditions)) if conditions else data
         )
         causal_test_engine = CausalTestEngine(self.causal_specification, data_collector, index_col=0)
 
@@ -351,7 +359,6 @@ class JsonUtility:
         parser.add_argument(
             "--data_path",
             help="Specify path to file containing runtime data",
-            required=True,
             nargs="+",
         )
         parser.add_argument(
