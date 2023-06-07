@@ -53,8 +53,12 @@ class CausalTestResult:
         base_str = (
             f"Causal Test Result\n==============\n"
             f"Treatment: {self.estimator.treatment}\n"
-            f"Control value: {self.estimator.control_value}\n"
-            f"Treatment value: {self.estimator.treatment_value}\n"
+        )
+        if self.estimator.control_value:
+            base_str += f"Control value: {self.estimator.control_value.value}\n"
+        if self.estimator.treatment_value:
+            base_str += f"Treatment value: {self.estimator.treatment_value.value}\n"
+        base_str += (
             f"Outcome: {self.estimator.outcome}\n"
             f"Adjustment set: {self.adjustment_set}\n"
             f"{self.test_value.type}: {result_str}\n"

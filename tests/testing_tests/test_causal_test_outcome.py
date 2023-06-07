@@ -12,8 +12,8 @@ class TestCausalTestOutcome(unittest.TestCase):
         self.estimator = LinearRegressionEstimator(
             treatment="A",
             outcome="A",
-            treatment_value=1,
-            control_value=0,
+            treatment_value=TestValue(int, 1),
+            control_value=TestValue(int, 0),
             adjustment_set={},
         )
 
@@ -35,8 +35,7 @@ class TestCausalTestOutcome(unittest.TestCase):
                 "control_value": 0,
                 "treatment_value": 1,
                 "outcome": "A",
-                "adjustment_set": set(),
-                "test_value": test_value,
+                "adjustment_set": [],
             },
         )
 
@@ -246,29 +245,6 @@ class TestCausalTestOutcome(unittest.TestCase):
         self.assertFalse(SomeEffect().apply(ctr))
         self.assertTrue(NoEffect().apply(ctr))
 
-    def test_someEffect_str(self):
-        test_value = TestValue(type="ate", value=0)
-        ctr = CausalTestResult(
-            estimator=self.estimator,
-            test_value=test_value,
-            confidence_intervals=[-0.1, 0.2],
-            effect_modifier_configuration=None,
-        )
-        ev = SomeEffect()
-        self.assertEqual(
-            ctr.to_dict(),
-            {
-                "treatment": "A",
-                "control_value": 0,
-                "treatment_value": 1,
-                "outcome": "A",
-                "adjustment_set": set(),
-                "test_value": test_value,
-                "ci_low": -0.1,
-                "ci_high": 0.2,
-            },
-        )
-
     def test_someEffect_dict(self):
         test_value = TestValue(type="ate", value=0)
         ctr = CausalTestResult(
@@ -285,8 +261,7 @@ class TestCausalTestOutcome(unittest.TestCase):
                 "control_value": 0,
                 "treatment_value": 1,
                 "outcome": "A",
-                "adjustment_set": set(),
-                "test_value": test_value,
+                "adjustment_set": [],
                 "ci_low": -0.1,
                 "ci_high": 0.2,
             },
