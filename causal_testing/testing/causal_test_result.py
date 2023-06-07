@@ -72,16 +72,18 @@ class CausalTestResult:
         :return: Dictionary containing contents of causal_test_result
         """
         base_dict = {
-            "treatment": self.estimator.treatment[0],
-            "control_value": self.estimator.control_value,
-            "treatment_value": self.estimator.treatment_value,
-            "outcome": self.estimator.outcome[0],
-            "adjustment_set": self.adjustment_set,
-            "test_value": self.test_value,
-        }
-        if self.confidence_intervals and all(self.confidence_intervals):
-            base_dict["ci_low"] = min(self.confidence_intervals)
-            base_dict["ci_high"] = max(self.confidence_intervals)
+            "treatment": self.estimator.treatment,
+            "outcome": self.estimator.outcome,
+            "adjustment_set": sorted(list(self.adjustment_set)),
+            }
+        if self.estimator.control_value:
+            base_dict["control_value"] = self.estimator.control_value.value
+        if self.estimator.treatment_value:
+            base_dict["treatment_value"] = self.estimator.treatment_value.value
+        if self.ci_low() is not None:
+            base_dict["ci_low"] = self.ci_low()
+        if self.ci_high() is not None:
+            base_dict["ci_high"] = self.ci_high()
         return base_dict
 
     def ci_low(self):
