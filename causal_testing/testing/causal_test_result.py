@@ -4,6 +4,7 @@ TestValue dataclass.
 from typing import Any
 from dataclasses import dataclass
 import pandas as pd
+import json
 
 from causal_testing.testing.estimators import Estimator
 from causal_testing.specification.variable import Variable

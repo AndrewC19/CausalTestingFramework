@@ -183,6 +183,15 @@ class CausalTestEngine:
                 effect_modifier_configuration=causal_test_case.effect_modifier_configuration,
                 confidence_intervals=confidence_intervals,
             )
+        elif estimate_type == "cate_coefficient":
+            logger.debug("calculating CATE coefficients")
+            coefficient, confidence_intervals = estimator.estimate_unit_cate()
+            causal_test_result = CausalTestResult(
+                estimator=estimator,
+                test_value=TestValue("coefficient", coefficient),
+                effect_modifier_configuration=causal_test_case.effect_modifier_configuration,
+                confidence_intervals=confidence_intervals,
+            )
         elif estimate_type == "ate":
             logger.debug("calculating ate")
             ate, confidence_intervals = estimator.estimate_ate()

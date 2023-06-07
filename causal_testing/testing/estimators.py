@@ -18,6 +18,8 @@ from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
 from causal_testing.specification.variable import Variable
 
+from itertools import product
+
 logger = logging.getLogger(__name__)
 
 
@@ -328,6 +330,42 @@ class LinearRegressionEstimator(Estimator):
             "do not need to be linear."
         )
 
+    def estimate_unit_cate(self) -> float:
+        """Estimate the unit average treatment effect of the treatment on the outcome. That is, the change in outcome
+        caused by a unit change in treatment.
+
+        :return: The unit average treatment effect and the 95% Wald confidence intervals.
+        """
+        categoricals = set(self.df.select_dtypes(object).columns).intersection(self.adjustment_set)
+        categorical_values = [sorted(list(set(self.df[c]))) for c in categoricals]
+        unit_effect = []
+        ci_low = []
+        ci_high = []
+        for combination in product(*categorical_values):
+            queries = [f"{c} == '{v}'" for c, v in zip(categoricals, combination)]
+            df = self.df.query(" and ".join(queries))
+            model = self._run_linear_regression(df)
+            treatment = [self.treatment]
+            if str(self.df.dtypes[self.treatment]) == "object":
+                design_info = dmatrix(self.formula.split("~")[1], self.df).design_info
+                treatment = design_info.column_names[design_info.term_name_slices[self.treatment]]
+            newline = "\n"
+            assert set(treatment).issubset(
+                model.params.index.tolist()
+            ), f"{treatment} not in\n{'  '+str(model.params.index).replace(newline, newline+'  ')}"
+            unit_effect_ = model.params[treatment]  # Unit effect is the coefficient of the treatment
+            [ci_low_, ci_high_] = self._get_confidence_intervals(model, treatment)
+            if str(self.df.dtypes[self.treatment]) != "object":
+                unit_effect.append(unit_effect_[0])
+                ci_low.append(ci_low_[0])
+                ci_high.append(ci_high_[0])
+            else:
+                unit_effect += unit_effect_
+                ci_low += ci_low_
+                ci_high += ci_high_
+
+        return pd.Series(unit_effect, index=categorical_values), [ pd.Series(ci_low, index=categorical_values),  pd.Series(ci_high, index=categorical_values)]
+
     def estimate_unit_ate(self) -> float:
         """Estimate the unit average treatment effect of the treatment on the outcome. That is, the change in outcome
         caused by a unit change in treatment.
@@ -336,7 +374,6 @@ class LinearRegressionEstimator(Estimator):
         """
         model = self._run_linear_regression()
         newline = "\n"
-        print(model.conf_int())
         treatment = [self.treatment]
         if str(self.df.dtypes[self.treatment]) == "object":
             design_info = dmatrix(self.formula.split("~")[1], self.df).design_info
@@ -429,26 +466,16 @@ class LinearRegressionEstimator(Estimator):
 
         return (treatment_outcome["mean"] - control_outcome["mean"]), [ci_low, ci_high]
 
-    def _run_linear_regression(self) -> RegressionResultsWrapper:
+    def _run_linear_regression(self, df=None) -> RegressionResultsWrapper:
         """Run linear regression of the treatment and adjustment set against the outcome and return the model.
 
         :return: The model after fitting to data.
         """
-        # 1. Reduce dataframe to contain only the necessary columns
-        reduced_df = self.df.copy()
-        necessary_cols = [self.treatment] + list(self.adjustment_set) + [self.outcome]
-        missing_rows = reduced_df[necessary_cols].isnull().any(axis=1)
-        reduced_df = reduced_df[~missing_rows]
-        reduced_df = reduced_df.sort_values([self.treatment])
-        logger.debug(reduced_df[necessary_cols])
-
-        # 2. Add intercept
-        reduced_df["Intercept"] = 1  # self.intercept
-
-        # 3. Estimate the unit difference in outcome caused by unit difference in treatment
+        if df is None:
+            df = self.df
         cols = [self.treatment]
         cols += [x for x in self.adjustment_set if x not in cols]
-        model = smf.ols(formula=self.formula, data=self.df).fit()
+        model = smf.ols(formula=self.formula, data=df).fit()
         return model
 
     def _get_confidence_intervals(self, model, treatment):

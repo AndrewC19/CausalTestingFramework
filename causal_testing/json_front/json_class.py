@@ -125,7 +125,7 @@ class JsonUtility:
                 continue
             test["estimator"] = estimators[test["estimator"]]
             if "mutations" in test:
-                if test["estimate_type"] == "coefficient":
+                if "coefficient" in test["estimate_type"]:
                     base_test_case = BaseTestCase(
                         treatment_variable=next(self.scenario.variables[v] for v in test["mutations"]),
                         outcome_variable=next(self.scenario.variables[v] for v in test["expected_effect"]),
@@ -137,7 +137,7 @@ class JsonUtility:
                         expected_causal_effect=next(
                             effects[effect] for variable, effect in test["expected_effect"].items()
                         ),
-                        estimate_type="coefficient",
+                        estimate_type=test["estimate_type"],
                         effect_modifier_configuration={
                             self.scenario.variables[v] for v in test.get("effect_modifiers", [])
                         },
