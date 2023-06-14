@@ -116,6 +116,7 @@ class TestMetamorphicRelation(unittest.TestCase):
                 "estimate_type": "coefficient",
                 "estimator": "LinearRegressionEstimator",
                 "expected_effect": {"Z": "NoEffect"},
+                "formula": "Z ~ X1",
                 "mutations": ["X1"],
                 "name": "X1 _||_ Z",
                 "formula": "Z ~ X1",

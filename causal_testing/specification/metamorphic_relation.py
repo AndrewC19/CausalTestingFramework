@@ -7,12 +7,17 @@ from dataclasses import dataclass
 from abc import abstractmethod
 from typing import Iterable
 from itertools import combinations
-import numpy as np
-import pandas as pd
+import argparse
+import logging
+import json
 import networkx as nx
+import pandas as pd
+import numpy as np
 
 from causal_testing.specification.causal_specification import CausalDAG, Node
 from causal_testing.data_collection.data_collector import ExperimentalDataCollector
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(order=True)
@@ -246,3 +251,35 @@ def generate_metamorphic_relations(dag: CausalDAG) -> list[MetamorphicRelation]:
             metamorphic_relations.append(ShouldCause(v, u, adj_set, dag))
 
     return metamorphic_relations
+
+
+if __name__ == "__main__": # pragma: no cover
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+    parser = argparse.ArgumentParser(
+        description="A script for generating metamorphic relations to test the causal relationships in a given DAG."
+    )
+    parser.add_argument(
+        "--dag_path",
+        "-d",
+        help="Specify path to file containing the DAG, normally a .dot file.",
+        required=True,
+    )
+    parser.add_argument(
+        "--output_path",
+        "-o",
+        help="Specify path where tests should be saved, normally a .json file.",
+        required=True,
+    )
+    args = parser.parse_args()
+
+    causal_dag = CausalDAG(args.dag_path)
+    relations = generate_metamorphic_relations(causal_dag)
+    tests = [
+        relation.to_json_stub(skip=False)
+        for relation in relations
+        if len(list(causal_dag.graph.predecessors(relation.output_var))) > 0
+    ]
+
+    logger.info(f"Generated {len(tests)} tests. Saving to {args.output_path}.")
+    with open(args.output_path, "w", encoding="utf-8") as f:
+        json.dump({"tests": tests}, f, indent=2)
