@@ -20,6 +20,18 @@ Node = Union[str, int]  # Node type hint: A node is a string or an int
 logger = logging.getLogger(__name__)
 
 
+def custom_copy(graph: nx.Graph):
+
+    """ This is a workaround of using .copy(), which is slow for large dags. """
+    copied_graph = nx.Graph()
+
+    for u, v in graph.edges():
+
+        copied_graph.add_edge(u, v) # Note: add_edge performs better than add_edges_from
+
+    return copied_graph
+
+
 def list_all_min_sep(
     graph: nx.Graph,
     treatment_node: Node,
@@ -39,13 +51,8 @@ def list_all_min_sep(
     :param outcome_node_set: Set of outcome nodes.
     :return: A list of minimal-sized sets of variables which separate treatment and outcome in the undirected graph.
     """
-    # 1. Compute the close separator of the treatment set
-    close_separator_set = close_separator(graph, treatment_node, outcome_node, treatment_node_set)
-
-    # 2. Use the close separator to separate the graph and obtain the connected components (connected sub-graphs)
-    components_graph = graph.copy()
-    components_graph.remove_nodes_from(close_separator_set)
-    graph_components = nx.connected_components(components_graph)
+    # 1. and 2. Compute the close separator of the treatment set
+    graph_components = close_separator(graph, treatment_node, outcome_node, treatment_node_set)
 
     # 3. Find the connected component that contains the treatment node
     treatment_connected_component_node_set = set()
@@ -60,7 +67,7 @@ def list_all_min_sep(
 
         # 6. Obtain the neighbours of the new treatment node set (this excludes the treatment nodes themselves)
         treatment_node_set_neighbours = (
-            set.union(*[set(nx.neighbors(graph, node)) for node in treatment_node_set]) - treatment_node_set
+            set().union(*[set(nx.neighbors(graph, node)) for node in treatment_node_set]) - treatment_node_set
         )
 
         # 7. Check that there exists at least one neighbour of the treatment nodes that is not in the outcome node set
@@ -90,7 +97,6 @@ def list_all_min_sep(
             # node neighbours
             yield treatment_node_set_neighbours
 
-
 def close_separator(
     graph: nx.Graph, treatment_node: Node, outcome_node: Node, treatment_node_set: set[Node]
 ) -> set[Node]:
@@ -110,9 +116,14 @@ def close_separator(
     :return: A treatment_node-outcome_node separator whose vertices are adjacent to those in treatments.
     """
     treatment_neighbours = set.union(*[set(nx.neighbors(graph, treatment)) for treatment in treatment_node_set])
-    components_graph = graph.copy()
+    components_graph = custom_copy(graph)
+    #components_graph = graph.copy()
     components_graph.remove_nodes_from(treatment_neighbours)
     graph_components = nx.connected_components(components_graph)
+
+
+    second_components_graph = custom_copy(graph)
+    #second_components_graph = graph.copy()
     for component in graph_components:
         if outcome_node in component:
             neighbours_of_variables_in_component = set.union(
@@ -120,7 +131,9 @@ def close_separator(
             )
             # For this algorithm, the neighbours of a node do not include the node itself
             neighbours_of_variables_in_component = neighbours_of_variables_in_component.difference(component)
-            return neighbours_of_variables_in_component
+            second_components_graph.remove_nodes_from(neighbours_of_variables_in_component)
+            graph_components = nx.connected_components(second_components_graph)
+            return graph_components
     raise ValueError(f"No {treatment_node}-{outcome_node} separator in the graph.")
 
 
