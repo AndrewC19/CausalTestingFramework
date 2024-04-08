@@ -452,11 +452,9 @@ class TestHiddenVariableDAG(unittest.TestCase):
         x = Input("X", int)
         m = Input("M", int)
 
-        scenario = Scenario(variables={z, x, m})
-        adjustment_sets = causal_dag.identification(BaseTestCase(x, m), scenario)
+        adjustment_sets = causal_dag.identification(BaseTestCase(x, m))
 
-        z.hidden = True
-        adjustment_sets_with_hidden = causal_dag.identification(BaseTestCase(x, m), scenario)
+        adjustment_sets_with_hidden = causal_dag.identification(BaseTestCase(x, m), hidden_variables=["Z"])
 
         self.assertNotEqual(adjustment_sets, adjustment_sets_with_hidden)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from itertools import combinations
+from itertools import combinations, islice
 from random import sample
 from typing import Union
 
@@ -21,13 +21,11 @@ logger = logging.getLogger(__name__)
 
 
 def custom_copy(graph: nx.Graph):
-
-    """ This is a workaround of using .copy(), which is slow for large dags. """
+    """This is a workaround of using .copy(), which is slow for large dags."""
     copied_graph = nx.Graph()
 
     for u, v in graph.edges():
-
-        copied_graph.add_edge(u, v) # Note: add_edge performs better than add_edges_from
+        copied_graph.add_edge(u, v)  # Note: add_edge performs better than add_edges_from
 
     return copied_graph
 
@@ -97,6 +95,7 @@ def list_all_min_sep(
             # node neighbours
             yield treatment_node_set_neighbours
 
+
 def close_separator(
     graph: nx.Graph, treatment_node: Node, outcome_node: Node, treatment_node_set: set[Node]
 ) -> set[Node]:
@@ -117,13 +116,12 @@ def close_separator(
     """
     treatment_neighbours = set.union(*[set(nx.neighbors(graph, treatment)) for treatment in treatment_node_set])
     components_graph = custom_copy(graph)
-    #components_graph = graph.copy()
+    # components_graph = graph.copy()
     components_graph.remove_nodes_from(treatment_neighbours)
     graph_components = nx.connected_components(components_graph)
 
-
     second_components_graph = custom_copy(graph)
-    #second_components_graph = graph.copy()
+    # second_components_graph = graph.copy()
     for component in graph_components:
         if outcome_node in component:
             neighbours_of_variables_in_component = set.union(
@@ -275,7 +273,9 @@ class CausalDAG(nx.DiGraph):
             gback.graph.remove_edge(v1, v2)
         return gback
 
-    def direct_effect_adjustment_sets(self, treatments: list[str], outcomes: list[str]) -> list[set[str]]:
+    def direct_effect_adjustment_sets(
+        self, treatments: list[str], outcomes: list[str], max_results: int = None, hidden_variables: set[str] = None
+    ) -> list[set[str]]:
         """
         Get the smallest possible set of variables that blocks all back-door paths between all pairs of treatments
         and outcomes for DIRECT causal effect.
@@ -300,12 +300,16 @@ class CausalDAG(nx.DiGraph):
         edges_to_add += [("OUTCOME", outcome) for outcome in outcomes]
         gam.add_edges_from(edges_to_add)
 
-        min_seps = list(list_all_min_sep(gam, "TREATMENT", "OUTCOME", set(treatments), set(outcomes)))
-        if set(outcomes) in min_seps:
-            min_seps.remove(set(outcomes))
+        min_seps = list_all_min_sep(gam, "TREATMENT", "OUTCOME", set(treatments), set(outcomes))
+        if hidden_variables is None:
+            hidden_variables = set()
+        min_seps = filter(lambda adj: adj != set(outcomes) and len(adj.intersection(hidden_variables)) == 0, min_seps)
+        min_seps = list(islice(min_seps, max_results))
         return min_seps
 
-    def enumerate_minimal_adjustment_sets(self, treatments: list[str], outcomes: list[str]) -> list[set[str]]:
+    def enumerate_minimal_adjustment_sets(
+        self, treatments: list[str], outcomes: list[str], max_results: int = None, hidden_variables: set[str] = None
+    ) -> list[set[str]]:
         """Get the smallest possible set of variables that blocks all back-door paths between all pairs of treatments
         and outcomes.
 
@@ -350,20 +354,22 @@ class CausalDAG(nx.DiGraph):
         # 4.  Find all minimal separators of X^m and Y^m using Takata's algorithm for listing minimal separators
         treatment_node_set = {"TREATMENT"}
         outcome_node_set = set(nx.neighbors(moralised_proper_backdoor_graph, "OUTCOME")).union({"OUTCOME"})
-        minimum_adjustment_sets = list(
-            list_all_min_sep(
-                moralised_proper_backdoor_graph,
-                "TREATMENT",
-                "OUTCOME",
-                treatment_node_set,
-                outcome_node_set,
-            )
+        min_seps = list_all_min_sep(
+            moralised_proper_backdoor_graph,
+            "TREATMENT",
+            "OUTCOME",
+            treatment_node_set,
+            outcome_node_set,
         )
-        valid_minimum_adjustment_sets = [
-            adj
-            for adj in minimum_adjustment_sets
-            if self.constructive_backdoor_criterion(proper_backdoor_graph, treatments, outcomes, adj)
-        ]
+        # all(not scenario.variables.get(x).hidden for x in adj)
+        if hidden_variables is None:
+            hidden_variables = set()
+        valid_minimum_adjustment_sets = filter(
+            lambda adj: self.constructive_backdoor_criterion(proper_backdoor_graph, treatments, outcomes, adj)
+            and len(adj.intersection(hidden_variables)) == 0,
+            min_seps,
+        )
+        valid_minimum_adjustment_sets = list(islice(valid_minimum_adjustment_sets, max_results))
 
         return valid_minimum_adjustment_sets
 
@@ -520,7 +526,12 @@ class CausalDAG(nx.DiGraph):
         """
         return [adj for adj in minimal_adjustment_sets if all(not scenario.variables.get(x).hidden for x in adj)]
 
-    def identification(self, base_test_case: BaseTestCase, scenario: Scenario = None):
+    def identification(
+        self,
+        base_test_case: BaseTestCase,
+        max_results: int = None,
+        hidden_variables: set[str] = None,
+    ):
         """Identify and return the minimum adjustment set
 
         :param base_test_case: A base test case instance containing the outcome_variable and the
@@ -532,17 +543,20 @@ class CausalDAG(nx.DiGraph):
         minimal_adjustment_sets = []
         if base_test_case.effect == "total":
             minimal_adjustment_sets = self.enumerate_minimal_adjustment_sets(
-                [base_test_case.treatment_variable.name], [base_test_case.outcome_variable.name]
+                [base_test_case.treatment_variable.name],
+                [base_test_case.outcome_variable.name],
+                max_results=max_results,
+                hidden_variables=hidden_variables,
             )
         elif base_test_case.effect == "direct":
             minimal_adjustment_sets = self.direct_effect_adjustment_sets(
-                [base_test_case.treatment_variable.name], [base_test_case.outcome_variable.name]
+                [base_test_case.treatment_variable.name],
+                [base_test_case.outcome_variable.name],
+                max_results=max_results,
+                hidden_variables=hidden_variables,
             )
         else:
             raise ValueError("Causal effect should be 'total' or 'direct'")
-
-        if scenario is not None:
-            minimal_adjustment_sets = self.remove_hidden_adjustment_sets(minimal_adjustment_sets, scenario)
 
         if len(minimal_adjustment_sets) == 0:
             return set()

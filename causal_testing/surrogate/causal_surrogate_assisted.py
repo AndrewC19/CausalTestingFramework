@@ -125,7 +125,9 @@ class CausalSurrogateAssistedTestCase:
                 to_var = specification.scenario.variables.get(v)
                 base_test_case = BaseTestCase(from_var, to_var)
 
-                minimal_adjustment_set = specification.causal_dag.identification(base_test_case, specification.scenario)
+                minimal_adjustment_set = specification.causal_dag.identification(
+                    base_test_case, hidden_variables={x.name for x in specification.scenario.hidden_variables()}
+                )
 
                 surrogate = CubicSplineRegressionEstimator(
                     u,
