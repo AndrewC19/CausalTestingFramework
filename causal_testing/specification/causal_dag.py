@@ -19,23 +19,13 @@ Node = Union[str, int]  # Node type hint: A node is a string or an int
 
 logger = logging.getLogger(__name__)
 
-
-def custom_copy(graph: nx.Graph):
-    """This is a workaround of using .copy(), which is slow for large dags."""
-    copied_graph = nx.Graph()
-
-    for u, v in graph.edges():
-        copied_graph.add_edge(u, v)  # Note: add_edge performs better than add_edges_from
-
-    return copied_graph
-
-
 def list_all_min_sep(
-    graph: nx.Graph,
-    treatment_node: Node,
-    outcome_node: Node,
-    treatment_node_set: set[Node],
-    outcome_node_set: set[Node],
+        graph: nx.Graph,
+        treatment_node: Node,
+        outcome_node: Node,
+        treatment_node_set: set[Node],
+        outcome_node_set: set[Node],
+        max_results:int = None
 ):
     """A backtracking algorithm for listing all minimal treatment-outcome separators in an undirected graph.
 
@@ -47,8 +37,13 @@ def list_all_min_sep(
     :param outcome_node: The node corresponding to the outcome variable we wish to separate from the input.
     :param treatment_node_set: Set of treatment nodes.
     :param outcome_node_set: Set of outcome nodes.
+    :param max_results: Maximum number of minimal treatment-outcome separators to find. If None, calculate all components.
     :return: A list of minimal-sized sets of variables which separate treatment and outcome in the undirected graph.
     """
+    # Check if maximum results have already been reached
+    if max_results is not None and max_results == 0:
+        return
+
     # 1. and 2. Compute the close separator of the treatment set
     graph_components = close_separator(graph, treatment_node, outcome_node, treatment_node_set)
 
@@ -65,7 +60,7 @@ def list_all_min_sep(
 
         # 6. Obtain the neighbours of the new treatment node set (this excludes the treatment nodes themselves)
         treatment_node_set_neighbours = (
-            set().union(*[set(nx.neighbors(graph, node)) for node in treatment_node_set]) - treatment_node_set
+                set().union(*[set(nx.neighbors(graph, node)) for node in treatment_node_set]) - treatment_node_set
         )
 
         # 7. Check that there exists at least one neighbour of the treatment nodes that is not in the outcome node set
@@ -80,6 +75,7 @@ def list_all_min_sep(
                 outcome_node,
                 treatment_node_set.union(node),
                 outcome_node_set,
+                max_results - 1 if max_results is not None else None,  # Decrement the max_results if not None
             )
 
             # 7.3. Add this node to the outcome node set and recurse (right branch)
@@ -89,6 +85,7 @@ def list_all_min_sep(
                 outcome_node,
                 treatment_node_set,
                 outcome_node_set.union(node),
+                max_results - 1 if max_results is not None else None,  # Decrement the max_results if not None
             )
         else:
             # 8. If all neighbours of the treatments nodes are in the outcome node set, return the set of treatment
@@ -115,13 +112,12 @@ def close_separator(
     :return: A treatment_node-outcome_node separator whose vertices are adjacent to those in treatments.
     """
     treatment_neighbours = set.union(*[set(nx.neighbors(graph, treatment)) for treatment in treatment_node_set])
-    components_graph = custom_copy(graph)
-    # components_graph = graph.copy()
+
+    components_graph = graph.copy()
     components_graph.remove_nodes_from(treatment_neighbours)
     graph_components = nx.connected_components(components_graph)
 
-    second_components_graph = custom_copy(graph)
-    # second_components_graph = graph.copy()
+    second_components_graph = graph.copy()
     for component in graph_components:
         if outcome_node in component:
             neighbours_of_variables_in_component = set.union(
@@ -133,7 +129,6 @@ def close_separator(
             graph_components = nx.connected_components(second_components_graph)
             return graph_components
     raise ValueError(f"No {treatment_node}-{outcome_node} separator in the graph.")
-
 
 class CausalDAG(nx.DiGraph):
     """A causal DAG is a directed acyclic graph in which nodes represent random variables and edges represent causality
@@ -308,7 +303,7 @@ class CausalDAG(nx.DiGraph):
         return min_seps
 
     def enumerate_minimal_adjustment_sets(
-        self, treatments: list[str], outcomes: list[str], max_results: int = None, hidden_variables: set[str] = None
+        self, treatments: list[str], outcomes: list[str], max_results:int = None, hidden_variables: set[str] = None
     ) -> list[set[str]]:
         """Get the smallest possible set of variables that blocks all back-door paths between all pairs of treatments
         and outcomes.
@@ -360,7 +355,9 @@ class CausalDAG(nx.DiGraph):
             "OUTCOME",
             treatment_node_set,
             outcome_node_set,
+            max_results,
         )
+
         # all(not scenario.variables.get(x).hidden for x in adj)
         if hidden_variables is None:
             hidden_variables = set()
