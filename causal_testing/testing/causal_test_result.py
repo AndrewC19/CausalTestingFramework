@@ -1,5 +1,5 @@
 """This module contains the CausalTestResult class, which is a container for the results of a causal test, and the
-TestValue dataclass.
+CausalTestValue dataclass.
 """
 
 from typing import Any
@@ -11,7 +11,7 @@ from causal_testing.specification.variable import Variable
 
 
 @dataclass
-class TestValue:
+class CausalTestValue:
     """A dataclass to hold both the type and value of a causal test result"""
 
     type: str
@@ -27,7 +27,7 @@ class CausalTestResult:
         # pylint: disable=too-many-arguments
         self,
         estimator: Estimator,
-        test_value: TestValue,
+        test_value: CausalTestValue,
         confidence_intervals: [pd.Series, pd.Series] = None,
         effect_modifier_configuration: {Variable: Any} = None,
         adequacy=None,

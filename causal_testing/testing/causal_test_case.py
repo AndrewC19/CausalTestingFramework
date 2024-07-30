@@ -8,7 +8,7 @@ from causal_testing.specification.variable import Variable
 from causal_testing.testing.causal_test_outcome import CausalTestOutcome
 from causal_testing.testing.base_test_case import BaseTestCase
 from causal_testing.testing.estimators import Estimator
-from causal_testing.testing.causal_test_result import CausalTestResult, TestValue
+from causal_testing.testing.causal_test_result import CausalTestResult, CausalTestValue
 from causal_testing.data_collection.data_collector import DataCollector
 
 
@@ -85,14 +85,14 @@ class CausalTestCase:
             effect, confidence_intervals = estimate_effect(**self.estimate_params)
             return CausalTestResult(
                 estimator=estimator,
-                test_value=TestValue(self.estimate_type, effect),
+                test_value=CausalTestValue(self.estimate_type, effect),
                 effect_modifier_configuration=self.effect_modifier_configuration,
                 confidence_intervals=confidence_intervals,
             )
         except np.linalg.LinAlgError:
             return CausalTestResult(
                 estimator=estimator,
-                test_value=TestValue(self.estimate_type, "LinAlgError"),
+                test_value=CausalTestValue(self.estimate_type, "LinAlgError"),
                 effect_modifier_configuration=self.effect_modifier_configuration,
                 confidence_intervals=None,
             )
