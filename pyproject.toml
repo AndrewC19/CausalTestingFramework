@@ -15,7 +15,6 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 keywords = ["causal inference", "verification"]
 dependencies = [
-    "z3_solver~=4.11.2", # z3_solver does not follow semantic versioning and tying to 4.11 introduces problems
     "fitter~=1.7",
     "lifelines~=0.29.0",
     "lhsmdu~=1.1",
