@@ -49,14 +49,6 @@ spec:
         path: inputs/
         required: true
 
-      - name: Variables
-        description: >
-          A .JSON file containing the input variables to be used
-        default:
-          - 02e755c8-952b-461a-a914-4f4ffbe2edf1
-        path: inputs/
-        required: true
-
   outputs:
       datasets:
         - name: causal_test_results.json

@@ -13,6 +13,7 @@ from causal_testing.specification.variable import Input, Output
 from causal_testing.testing.causal_test_outcome import Positive, Negative, NoEffect, SomeEffect
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
 from causal_testing.json_front.json_class import JsonUtility
+from causal_testing.specification.causal_dag import CausalDAG
 
 
 class ValidationError(Exception):
@@ -41,12 +42,6 @@ def get_args(test_args=None) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--variables_path",
-        required=True,
-        help="Input configuration file path " "containing the predefined variables (.json)",
-    )
-
-    parser.add_argument(
         "--dag_path",
         required=True,
         help="Input configuration file path containing a valid DAG (.dot). "
@@ -71,15 +66,13 @@ def get_args(test_args=None) -> argparse.Namespace:
 
     # Convert these to Path objects for main()
 
-    args.variables_path = Path(args.variables_path)
-
     args.tests_path = Path(args.tests_path)
 
     if args.dag_path is not None:
         args.dag_path = Path(args.dag_path)
 
     if args.output_path is None:
-        args.output_path = "./data/outputs/causal_tests_results.json"
+        args.output_path = "data/outputs/causal_tests_results.json"
 
         Path(args.output_path).parent.mkdir(exist_ok=True)
 
@@ -91,53 +84,33 @@ def get_args(test_args=None) -> argparse.Namespace:
     return args
 
 
-def read_variables(variables_path: Path) -> FileNotFoundError | dict:
+def parse_variables(causal_dag: CausalDAG) -> tuple:
     """
-    Function to read the variables.json file specified by the user
-    :param variables_path: A Path object of the user-specified file path
-    :returns:
-            - dict - A valid dictionary consisting of the causal tests
-    """
-    if not variables_path.exists() or variables_path.is_dir():
-        print(f"JSON file not found at the specified location: {variables_path}")
-
-        raise FileNotFoundError
-
-    with variables_path.open("r") as file:
-        inputs = json.load(file)
-
-    return inputs
-
-
-def validate_variables(data_dict: dict) -> tuple:
-    """
-    Function to validate the variables defined in the causal tests
-    :param data_dict: A dictionary consisting of the pre-defined variables for the causal tests
+    Function to parse and validate the variables defined in the causal dag.
+    :param causal_dag: an instancce of the CausalDAG class containing the relationships and variables (as attribtutes)
     :returns:
     - Tuple containing the inputs, outputs and constraints to pass into the modelling scenario
     """
-    if data_dict["variables"]:
-        variables = data_dict["variables"]
 
-        inputs = [
-            Input(variable["name"], eval(variable["datatype"]))
-            for variable in variables
-            if variable["typestring"] == "Input"
-        ]
+    inputs = [
+        Input(node, eval(eval(attributes["datatype"])))
+        for node, attributes in causal_dag.graph.nodes(data=True)
+        if eval(attributes["typestring"]) == "input"
+    ]
 
-        outputs = [
-            Output(variable["name"], eval(variable["datatype"]))
-            for variable in variables
-            if variable["typestring"] == "Output"
-        ]
+    constraints = set()
 
-        constraints = set()
+    for (node, attributes), input_var in zip(causal_dag.graph.nodes(data=True), inputs):
 
-        for variable, input_var in zip(variables, inputs):
-            if "constraint" in variable:
-                constraints.add(input_var.z3 == variable["constraint"])
-    else:
-        raise ValidationError("Cannot find the variables defined by the causal tests.")
+        if "constraint" in attributes:
+
+            constraints.add(input_var.z3 == attributes["constraint"])
+
+    outputs = [
+        Output(node, eval(eval(attributes["datatype"])))
+        for node, attributes in causal_dag.graph.nodes(data=True)
+        if eval(attributes["typestring"]) == "output"
+    ]
 
     return inputs, outputs, constraints
 
@@ -153,11 +126,11 @@ def main():
 
         data_frame = pd.concat([pd.read_csv(d) for d in args.data_path])
 
-        # Step 1: Read in the JSON input/output variables and parse io arguments
+        # Step 1: Read in the dag and parse the variables from the .dot file
 
-        variables_dict = read_variables(args.variables_path)
+        causal_dag = CausalDAG(args.dag_path)
 
-        inputs, outputs, constraints = validate_variables(variables_dict)
+        inputs, outputs, constraints = parse_variables(causal_dag)
 
         # Step 2: Set up the modeling scenario and estimator
 

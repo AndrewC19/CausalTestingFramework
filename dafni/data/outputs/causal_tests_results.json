@@ -18,9 +18,15 @@
       "outcome": "cum_vaccinations",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 252628.1066666667,
-      "ci_low": 252271.33332001517,
-      "ci_high": 252984.8800133182
+      "effect_estimate": {
+        "max_doses": 252628.1066666667
+      },
+      "ci_low": [
+        252271.33332001517
+      ],
+      "ci_high": [
+        252984.8800133182
+      ]
     }
   },
   {
@@ -42,9 +48,15 @@
       "outcome": "cum_vaccinated",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 213111.93333333335,
-      "ci_low": 212755.15056812647,
-      "ci_high": 213468.71609854023
+      "effect_estimate": {
+        "max_doses": 213111.93333333335
+      },
+      "ci_low": [
+        212755.15056812647
+      ],
+      "ci_high": [
+        213468.71609854023
+      ]
     }
   },
   {
@@ -66,9 +78,15 @@
       "outcome": "cum_infections",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 2666.3066666666664,
-      "ci_low": 2619.972040648758,
-      "ci_high": 2712.6412926845746
+      "effect_estimate": {
+        "max_doses": 2666.3066666666664
+      },
+      "ci_low": [
+        2619.972040648758
+      ],
+      "ci_high": [
+        2712.6412926845746
+      ]
     }
   },
   {
@@ -89,9 +107,15 @@
       "outcome": "cum_vaccinations",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 315785.1333333332,
-      "ci_low": 315339.1666500188,
-      "ci_high": 316231.1000166476
+      "effect_estimate": {
+        "vaccine": 315785.1333333332
+      },
+      "ci_low": [
+        315339.1666500188
+      ],
+      "ci_high": [
+        316231.1000166476
+      ]
     }
   },
   {
@@ -112,9 +136,15 @@
       "outcome": "cum_vaccinated",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 266389.91666666657,
-      "ci_low": 265943.93821015797,
-      "ci_high": 266835.89512317517
+      "effect_estimate": {
+        "vaccine": 266389.91666666657
+      },
+      "ci_low": [
+        265943.93821015797
+      ],
+      "ci_high": [
+        266835.89512317517
+      ]
     }
   },
   {
@@ -135,9 +165,15 @@
       "outcome": "cum_infections",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 3332.883333333332,
-      "ci_low": 3274.9650508109467,
-      "ci_high": 3390.801615855717
+      "effect_estimate": {
+        "vaccine": 3332.883333333332
+      },
+      "ci_low": [
+        3274.9650508109467
+      ],
+      "ci_high": [
+        3390.801615855717
+      ]
     }
   },
   {
@@ -159,9 +195,15 @@
       "outcome": "cum_vaccinated",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": 0.9998656401531605,
-      "ci_low": 0.9929245394499968,
-      "ci_high": 1.0068067408563242
+      "effect_estimate": {
+        "cum_vaccinations": 0.9998656401531605
+      },
+      "ci_low": [
+        0.9929245394499968
+      ],
+      "ci_high": [
+        1.0068067408563242
+      ]
     }
   },
   {
@@ -183,9 +225,15 @@
       "outcome": "cum_infections",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": -0.006416682407515084,
-      "ci_low": -0.05663010083886572,
-      "ci_high": 0.043796736023835554
+      "effect_estimate": {
+        "cum_vaccinations": -0.006416682407515084
+      },
+      "ci_low": [
+        -0.05663010083886572
+      ],
+      "ci_high": [
+        0.043796736023835554
+      ]
     }
   },
   {
@@ -207,9 +255,15 @@
       "outcome": "cum_infections",
       "adjustment_set": [],
       "effect_measure": "coefficient",
-      "effect_estimate": -0.006176900588291234,
-      "ci_low": -0.05639349612119588,
-      "ci_high": 0.04403969494461341
+      "effect_estimate": {
+        "cum_vaccinated": -0.006176900588291234
+      },
+      "ci_low": [
+        -0.05639349612119588
+      ],
+      "ci_high": [
+        0.04403969494461341
+      ]
     }
   }
 ]

@@ -38,14 +38,25 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install causal-testing-framework -e .[dev]
+          python -m pip install dafni-cli
+
+      - name: Run tests before uploading
+        id: tests
+        run: |
+          python -m pytest ./dafni/tests 
+
       - name: Build the container
+        if: steps.tests.outcome == 'success'
         run: |
           docker build -t ctf:${{ env.VERSION }} -f ./dafni/Dockerfile .
           docker save ctf:${{ env.VERSION }} | gzip > ctf-dafni-${{ env.VERSION }}.tar.gz
 
-      - name: Install DAFNI-CLI and log in
+      - name: Log into DAFNI
         run: |
-          python -m pip install dafni-cli
           dafni login
 
       - name: Upload to DAFNI

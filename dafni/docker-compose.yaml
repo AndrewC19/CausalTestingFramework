@@ -3,8 +3,8 @@ services:
   causal-testing-framework:
     build:
       context: ../
-      dockerfile: ./dafni/Dockerfile
+      dockerfile: dafni/Dockerfile
     env_file:
       - .env
     volumes:
-      - .:/usr/src/app
+      - ./dafni:/usr/src/
