@@ -17,7 +17,6 @@ import pandas as pd
 import numpy as np
 
 from causal_testing.specification.causal_specification import CausalDAG, Node
-from causal_testing.data_collection.data_collector import ExperimentalDataCollector
 
 logger = logging.getLogger(__name__)
 
@@ -83,28 +82,44 @@ class MetamorphicRelation:
             )
         ]
 
-    def execute_tests(self, data_collector: ExperimentalDataCollector):
+    def execute_tests(self, results_df: pd.DataFrame):
         """Execute the generated list of metamorphic tests, returning a dictionary of tests that pass and fail.
 
-        :param data_collector: An experimental data collector for the system-under-test.
+        Args:
+            results_df: pandas DataFrame containing the test results with control and treatment outputs
+
+        Returns:
+            dict: Dictionary containing lists of passing and failing tests
         """
         test_results = {"pass": [], "fail": []}
+        results_data = {
+            "control_config": {},
+            "treatment_config": {},
+            "test_results": results_df.copy()
+        }
+
         for metamorphic_test in self.tests:
-            # Update the control and treatment configuration to take generated values for source and follow-up tests
+            # Create configurations for control and treatment tests
             control_input_config = metamorphic_test.source_inputs | metamorphic_test.other_inputs
             treatment_input_config = metamorphic_test.follow_up_inputs | metamorphic_test.other_inputs
-            data_collector.control_input_configuration = control_input_config
-            data_collector.treatment_input_configuration = treatment_input_config
-            metamorphic_test_results_df = data_collector.collect_data()
+
+            # Store configurations in results data
+            results_data["control_config"] = control_input_config
+            results_data["treatment_config"] = treatment_input_config
 
             # Apply assertion to control and treatment outputs
-            control_output = metamorphic_test_results_df.loc["control_0"][metamorphic_test.output]
-            treatment_output = metamorphic_test_results_df.loc["treatment_0"][metamorphic_test.output]
+            try:
+                control_output = results_df.loc["control_0"][metamorphic_test.output]
+                treatment_output = results_df.loc["treatment_0"][metamorphic_test.output]
 
-            if not self.assertion(control_output, treatment_output):
-                test_results["fail"].append(metamorphic_test)
-            else:
-                test_results["pass"].append(metamorphic_test)
+                if not self.assertion(control_output, treatment_output):
+                    test_results["fail"].append(metamorphic_test)
+                else:
+                    test_results["pass"].append(metamorphic_test)
+            except KeyError as e:
+                raise KeyError(
+                    f"Missing required output '{metamorphic_test.output}' or invalid row labels in results DataFrame: {e}")
+
         return test_results
 
     @abstractmethod

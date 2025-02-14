@@ -1,5 +1,4 @@
 import unittest
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.causal_specification import CausalSpecification
 from causal_testing.specification.scenario import Scenario
@@ -21,25 +20,18 @@ import numpy as np
 class TestSimulationResult(unittest.TestCase):
 
     def setUp(self):
-
         self.data = {"key": "value"}
 
     def test_inputs(self):
-
         fault_values = [True, False]
-
         relationship_values = ["positive", "negative", None]
 
         for fault in fault_values:
-
             for relationship in relationship_values:
                 with self.subTest(fault=fault, relationship=relationship):
                     result = SimulationResult(data=self.data, fault=fault, relationship=relationship)
-
                     self.assertIsInstance(result.data, dict)
-
                     self.assertEqual(result.fault, fault)
-
                     self.assertEqual(result.relationship, relationship)
 
 
@@ -58,7 +50,6 @@ class TestCausalSurrogate(unittest.TestCase):
 
     def test_surrogate_model_generation(self):
         c_s_a_test_case = CausalSurrogateAssistedTestCase(None, None, None)
-
         df = self.class_df.copy()
 
         causal_dag = CausalDAG(self.dag_dot_path)
@@ -69,7 +60,7 @@ class TestCausalSurrogate(unittest.TestCase):
         scenario = Scenario(variables={z, x, m, y})
         specification = CausalSpecification(scenario, causal_dag)
 
-        surrogate_models = c_s_a_test_case.generate_surrogates(specification, ObservationalDataCollector(scenario, df))
+        surrogate_models = c_s_a_test_case.generate_surrogates(specification, df)
         self.assertEqual(len(surrogate_models), 2)
 
         for surrogate in surrogate_models:
@@ -101,7 +92,7 @@ class TestCausalSurrogate(unittest.TestCase):
 
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
-        result, iterations, result_data = c_s_a_test_case.execute(ObservationalDataCollector(scenario, df))
+        result, iterations, result_data = c_s_a_test_case.execute(df)
 
         self.assertIsInstance(result, SimulationResult)
         self.assertEqual(iterations, 1)
@@ -131,7 +122,7 @@ class TestCausalSurrogate(unittest.TestCase):
 
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
-        result, iterations, result_data = c_s_a_test_case.execute(ObservationalDataCollector(scenario, df), 1)
+        result, iterations, result_data = c_s_a_test_case.execute(df, max_executions=1)
 
         self.assertIsInstance(result, str)
         self.assertEqual(iterations, 1)
@@ -162,7 +153,7 @@ class TestCausalSurrogate(unittest.TestCase):
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
         result, iterations, result_data = c_s_a_test_case.execute(
-            ObservationalDataCollector(scenario, df), custom_data_aggregator=data_double_aggregator
+            df, custom_data_aggregator=data_double_aggregator
         )
 
         self.assertIsInstance(result, SimulationResult)
@@ -197,7 +188,7 @@ class TestCausalSurrogate(unittest.TestCase):
         self.assertRaises(
             ValueError,
             c_s_a_test_case.execute,
-            data_collector=ObservationalDataCollector(scenario, df),
+            data=df,
             custom_data_aggregator=data_double_aggregator,
         )
 
@@ -207,7 +198,6 @@ class TestCausalSurrogate(unittest.TestCase):
 
 def load_class_df():
     """Get the testing data and put into a dataframe."""
-
     class_df = pd.DataFrame(
         {"Z": np.arange(16), "X": np.arange(16), "M": np.arange(16, 32), "Y": np.arange(32, 16, -1)}
     )
@@ -215,7 +205,6 @@ def load_class_df():
 
 
 class TestSimulator(Simulator):
-
     def run_with_config(self, configuration: dict) -> SimulationResult:
         return SimulationResult({"Z": 1, "X": 1, "M": 1, "Y": 1}, True, None)
 
@@ -227,7 +216,6 @@ class TestSimulator(Simulator):
 
 
 class TestSimulatorFailing(Simulator):
-
     def run_with_config(self, configuration: dict) -> SimulationResult:
         return SimulationResult({"Z": 1, "X": 1, "M": 1, "Y": 1}, False, None)
 

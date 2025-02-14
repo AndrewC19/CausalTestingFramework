@@ -14,8 +14,6 @@ import pandas as pd
 import scipy
 from fitter import Fitter, get_common_distributions
 
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
-from causal_testing.generation.abstract_causal_test_case import AbstractCausalTestCase
 from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.causal_specification import CausalSpecification
 from causal_testing.specification.scenario import Scenario
@@ -50,6 +48,7 @@ class JsonUtility:
     """
 
     def __init__(self, output_path: str, output_overwrite: bool = False):
+        self.df = None
         self.input_paths = None
         self.variables = {"inputs": {}, "outputs": {}, "metas": {}}
         self.test_plan = None
@@ -57,7 +56,6 @@ class JsonUtility:
         self.causal_specification = None
         self.output_path = Path(output_path)
         self.check_file_exists(self.output_path, output_overwrite)
-        self.data_collector = None
 
     def set_paths(self, json_path: str, dag_path: str, data_paths: list[str] = None):
         """
@@ -83,41 +81,13 @@ class JsonUtility:
             self.test_plan = json.load(f)
         # Populate the data
         if self.input_paths.data_paths:
-            data = pd.concat([pd.read_csv(data_file, header=0) for data_file in self.input_paths.data_paths])
-        if data is None or len(data) == 0:
+            self.df = pd.concat([pd.read_csv(data_file, header=0) for data_file in self.input_paths.data_paths])
+        if self.df is None or len(self.df) == 0:
             raise ValueError(
                 "No data found. Please either provide a path to a file containing data or manually populate the .data "
                 "attribute with a dataframe before calling .setup()"
             )
-        self.data_collector = ObservationalDataCollector(self.scenario, data)
         self._populate_metas()
-
-    def _create_abstract_test_case(self, test, mutates, effects):
-        assert len(test["mutations"]) == 1
-        treatment_var = next(self.scenario.variables[v] for v in test["mutations"])
-
-        if not treatment_var.distribution:
-            fitter = Fitter(self.data_collector.data[treatment_var.name], distributions=get_common_distributions())
-            fitter.fit()
-            (dist, params) = list(fitter.get_best(method="sumsquare_error").items())[0]
-            treatment_var.distribution = getattr(scipy.stats, dist)(**params)
-            self._append_to_file(treatment_var.name + f" {dist}({params})", logging.INFO)
-
-        abstract_test = AbstractCausalTestCase(
-            scenario=self.scenario,
-            intervention_constraints=[mutates[v](k) for k, v in test["mutations"].items()],
-            treatment_variable=treatment_var,
-            expected_causal_effect={
-                self.scenario.variables[variable]: effects[effect]
-                for variable, effect in test["expected_effect"].items()
-            },
-            effect_modifiers=(
-                {self.scenario.variables[v] for v in test["effect_modifiers"]} if "effect_modifiers" in test else {}
-            ),
-            estimate_type=test["estimate_type"],
-            effect=test.get("effect", "total"),
-        )
-        return abstract_test
 
     def run_json_tests(self, effects: dict, estimators: dict, f_flag: bool = False, mutates: dict = None):
         """Runs and evaluates each test case specified in the JSON input
@@ -228,13 +198,13 @@ class JsonUtility:
         failures, _ = self._execute_tests(concrete_tests, test, f_flag)
 
         msg = (
-            f"Executing test: {test['name']} \n"
-            + "  abstract_test \n"
-            + f"  {abstract_test} \n"
-            + f"  {abstract_test.treatment_variable.name},"
-            + f"  {abstract_test.treatment_variable.distribution} \n"
-            + f"  Number of concrete tests for test case: {str(len(concrete_tests))} \n"
-            + f"  {failures}/{len(concrete_tests)} failed for {test['name']}"
+                f"Executing test: {test['name']} \n"
+                + "  abstract_test \n"
+                + f"  {abstract_test} \n"
+                + f"  {abstract_test.treatment_variable.name},"
+                + f"  {abstract_test.treatment_variable.distribution} \n"
+                + f"  Number of concrete tests for test case: {str(len(concrete_tests))} \n"
+                + f"  {failures}/{len(concrete_tests)} failed for {test['name']}"
         )
         self._append_to_file(msg, logging.INFO)
         return failures, msg
@@ -257,7 +227,7 @@ class JsonUtility:
         Populate data with meta-variable values and add distributions to Causal Testing Framework Variables
         """
         for meta in self.scenario.variables_of_type(Meta):
-            meta.populate(self.data_collector.data)
+            meta.populate(self.df)
 
     def _execute_test_case(
         self, causal_test_case: CausalTestCase, test: Mapping, f_flag: bool
@@ -274,8 +244,7 @@ class JsonUtility:
 
         estimation_model = self._setup_test(causal_test_case=causal_test_case, test=test)
         causal_test_result = causal_test_case.execute_test(
-            estimator=estimation_model, data_collector=self.data_collector
-        )
+            estimator=estimation_model)
         test_passes = causal_test_case.expected_causal_effect.apply(causal_test_result)
 
         if "coverage" in test and test["coverage"]:
@@ -329,7 +298,7 @@ class JsonUtility:
         estimator_kwargs["control_value"] = causal_test_case.control_value
         estimator_kwargs["outcome"] = causal_test_case.outcome_variable.name
         estimator_kwargs["effect_modifiers"] = causal_test_case.effect_modifier_configuration
-        estimator_kwargs["df"] = self.data_collector.collect_data()
+        estimator_kwargs["df"] = self.df
         estimator_kwargs["alpha"] = test["alpha"] if "alpha" in test else 0.05
 
         estimation_model = test["estimator"](**estimator_kwargs)

@@ -60,8 +60,8 @@ class TestCausalTestAdequacy(unittest.TestCase):
         self.json_class.test_plan = example_test
         effects = {"NoEffect": NoEffect()}
         mutates = {
-            "Increase": lambda x: self.json_class.scenario.treatment_variables[x].z3
-            > self.json_class.scenario.variables[x].z3
+            "Increase": lambda x: self.json_class.scenario.treatment_variables[x]
+            > self.json_class.scenario.variables[x]
         }
         estimators = {"LinearRegressionEstimator": LinearRegressionEstimator}
 
@@ -91,8 +91,8 @@ class TestCausalTestAdequacy(unittest.TestCase):
         self.json_class.test_plan = example_test
         effects = {"NoEffect": NoEffect()}
         mutates = {
-            "Increase": lambda x: self.json_class.scenario.treatment_variables[x].z3
-            > self.json_class.scenario.variables[x].z3
+            "Increase": lambda x: self.json_class.scenario.treatment_variables[x]
+            > self.json_class.scenario.variables[x]
         }
         estimators = {"LinearRegressionEstimator": LinearRegressionEstimator}
 
