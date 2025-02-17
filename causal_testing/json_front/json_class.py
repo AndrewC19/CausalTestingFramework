@@ -11,18 +11,16 @@ from pathlib import Path
 from statistics import StatisticsError
 
 import pandas as pd
-import numpy as np
 import scipy
 from fitter import Fitter, get_common_distributions
 
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.generation.abstract_causal_test_case import AbstractCausalTestCase
 from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.causal_specification import CausalSpecification
 from causal_testing.specification.scenario import Scenario
 from causal_testing.specification.variable import Input, Meta, Output
 from causal_testing.testing.causal_test_case import CausalTestCase
-from causal_testing.testing.causal_test_result import CausalTestResult, TestValue
+from causal_testing.testing.causal_test_result import CausalTestResult
 from causal_testing.testing.base_test_case import BaseTestCase
 from causal_testing.testing.causal_test_adequacy import DataAdequacy
 
@@ -57,8 +55,8 @@ class JsonUtility:
         self.scenario = None
         self.causal_specification = None
         self.output_path = Path(output_path)
+        self.df = None
         self.check_file_exists(self.output_path, output_overwrite)
-        self.data_collector = None
 
     def set_paths(self, json_path: str, dag_path: str, data_paths: list[str] = None):
         """
@@ -71,7 +69,7 @@ class JsonUtility:
             data_paths = []
         self.input_paths = JsonClassPaths(json_path=json_path, dag_path=dag_path, data_paths=data_paths)
 
-    def setup(self, scenario: Scenario, data=None, ignore_cycles=False):
+    def setup(self, scenario: Scenario, ignore_cycles=False):
         """Function to populate all the necessary parts of the json_class needed to execute tests"""
         self.scenario = scenario
         self._get_scenario_variables()
@@ -84,13 +82,12 @@ class JsonUtility:
             self.test_plan = json.load(f)
         # Populate the data
         if self.input_paths.data_paths:
-            data = pd.concat([pd.read_csv(data_file, header=0) for data_file in self.input_paths.data_paths])
-        if data is None or len(data) == 0:
+            self.df = pd.concat([pd.read_csv(data_file, header=0) for data_file in self.input_paths.data_paths])
+        if self.df is None or len(self.df) == 0:
             raise ValueError(
                 "No data found. Please either provide a path to a file containing data or manually populate the .data "
                 "attribute with a dataframe before calling .setup()"
             )
-        self.data_collector = ObservationalDataCollector(self.scenario, data)
         self._populate_metas()
 
     def _create_abstract_test_case(self, test, mutates, effects):
@@ -98,7 +95,7 @@ class JsonUtility:
         treatment_var = next(self.scenario.variables[v] for v in test["mutations"])
 
         if not treatment_var.distribution:
-            fitter = Fitter(self.data_collector.data[treatment_var.name], distributions=get_common_distributions())
+            fitter = Fitter(self.df[treatment_var.name], distributions=get_common_distributions())
             fitter.fit()
             (dist, params) = list(fitter.get_best(method="sumsquare_error").items())[0]
             treatment_var.distribution = getattr(scipy.stats, dist)(**params)
@@ -261,7 +258,7 @@ class JsonUtility:
         Populate data with meta-variable values and add distributions to Causal Testing Framework Variables
         """
         for meta in self.scenario.variables_of_type(Meta):
-            meta.populate(self.data_collector.data)
+            meta.populate(self.df)
 
     def _execute_test_case(
         self, causal_test_case: CausalTestCase, test: Mapping, f_flag: bool
@@ -277,17 +274,8 @@ class JsonUtility:
         failed = False
 
         estimation_model = self._setup_test(causal_test_case=causal_test_case, test=test)
-        try:
-            causal_test_result = causal_test_case.execute_test(
-                estimator=estimation_model, data_collector=self.data_collector
-            )
-            test_passes = causal_test_case.expected_causal_effect.apply(causal_test_result)
-        except np.linalg.LinAlgError as e:
-            result = CausalTestResult(
-                estimator=estimation_model,
-                test_value=TestValue("Error", str(e)),
-            )
-            return None, result
+        causal_test_result = causal_test_case.execute_test(estimator=estimation_model)
+        test_passes = causal_test_case.expected_causal_effect.apply(causal_test_result)
 
         if "coverage" in test and test["coverage"]:
             adequacy_metric = DataAdequacy(causal_test_case, estimation_model)
@@ -340,7 +328,7 @@ class JsonUtility:
         estimator_kwargs["control_value"] = causal_test_case.control_value
         estimator_kwargs["outcome"] = causal_test_case.outcome_variable.name
         estimator_kwargs["effect_modifiers"] = causal_test_case.effect_modifier_configuration
-        estimator_kwargs["df"] = self.data_collector.collect_data()
+        estimator_kwargs["df"] = self.df
         estimator_kwargs["alpha"] = test["alpha"] if "alpha" in test else 0.05
 
         estimation_model = test["estimator"](**estimator_kwargs)

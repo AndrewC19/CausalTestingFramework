@@ -105,7 +105,7 @@ class DataAdequacy:
             else:
                 estimator.df = estimator.df.sample(len(estimator.df), replace=True, random_state=i)
             try:
-                results.append(self.test_case.execute_test(estimator, None))
+                results.append(self.test_case.execute_test(estimator))
             except LinAlgError:
                 logger.warning("Adequacy LinAlgError")
                 continue

@@ -1,5 +1,4 @@
 import unittest
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.causal_specification import CausalSpecification
 from causal_testing.specification.scenario import Scenario
@@ -69,7 +68,7 @@ class TestCausalSurrogate(unittest.TestCase):
         scenario = Scenario(variables={z, x, m, y})
         specification = CausalSpecification(scenario, causal_dag)
 
-        surrogate_models = c_s_a_test_case.generate_surrogates(specification, ObservationalDataCollector(scenario, df))
+        surrogate_models = c_s_a_test_case.generate_surrogates(specification, df)
         self.assertEqual(len(surrogate_models), 2)
 
         for surrogate in surrogate_models:
@@ -101,7 +100,7 @@ class TestCausalSurrogate(unittest.TestCase):
 
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
-        result, iterations, result_data = c_s_a_test_case.execute(ObservationalDataCollector(scenario, df))
+        result, iterations, result_data = c_s_a_test_case.execute(df)
 
         self.assertIsInstance(result, SimulationResult)
         self.assertEqual(iterations, 1)
@@ -131,7 +130,7 @@ class TestCausalSurrogate(unittest.TestCase):
 
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
-        result, iterations, result_data = c_s_a_test_case.execute(ObservationalDataCollector(scenario, df), 1)
+        result, iterations, result_data = c_s_a_test_case.execute(df, 1)
 
         self.assertIsInstance(result, str)
         self.assertEqual(iterations, 1)
@@ -161,9 +160,7 @@ class TestCausalSurrogate(unittest.TestCase):
 
         c_s_a_test_case = CausalSurrogateAssistedTestCase(specification, search_algorithm, simulator)
 
-        result, iterations, result_data = c_s_a_test_case.execute(
-            ObservationalDataCollector(scenario, df), custom_data_aggregator=data_double_aggregator
-        )
+        result, iterations, result_data = c_s_a_test_case.execute(df, custom_data_aggregator=data_double_aggregator)
 
         self.assertIsInstance(result, SimulationResult)
         self.assertEqual(iterations, 1)
@@ -197,7 +194,7 @@ class TestCausalSurrogate(unittest.TestCase):
         self.assertRaises(
             ValueError,
             c_s_a_test_case.execute,
-            data_collector=ObservationalDataCollector(scenario, df),
+            df=df,
             custom_data_aggregator=data_double_aggregator,
         )
 

@@ -34,18 +34,4 @@ The Causal Testing Framework consists of 3 main components: 1) Causal Specificat
       test should pass or fail based on the results. In the simplest case, this takes the form of an assertion which
       compares the point estimate to the expected causal effect specified in the causal test case.
 
-
-
-#.
-   :doc:`Data Collection <../modules/data_collector>`\ : Data for the system-under-test can be collected in two
-   ways: experimentally or observationally. The former involves executing the system-under-test under controlled
-   conditions which, by design, isolate the causal effect of interest (accurate but expensive), while the latter
-   involves collecting suitable previous execution data and utilising our causal knowledge to draw causal inferences (
-   potentially less accurate but efficient). To collect experimental data, the user must implement a single method which
-   runs the system-under-test with a given input configuration. On the other hand, when dealing with observational data,
-   we automatically check whether the data is suitable for the identified estimand in two steps. First, confirm whether
-   the data contains a column for each variable in the causal DAG. Second, we check
-   for `positivity violations <https://www.youtube.com/watch?v=4xc8VkrF98w>`_. If there are positivity violations, we can
-   provide instructions for an execution that will fill the gap (future work).
-
 For more information on each of these steps, follow the link to their respective documentation.

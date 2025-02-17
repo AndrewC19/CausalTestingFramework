@@ -2,14 +2,14 @@
 https://causal-testing-framework.readthedocs.io/en/latest/test_suite.html"""
 
 import logging
-
-from collections import UserDict
 from typing import Type, Iterable
+from collections import UserDict
+import pandas as pd
+
 from causal_testing.testing.base_test_case import BaseTestCase
 from causal_testing.testing.causal_test_case import CausalTestCase
 from causal_testing.estimation.abstract_estimator import Estimator
 from causal_testing.testing.causal_test_result import CausalTestResult
-from causal_testing.data_collection.data_collector import DataCollector
 from causal_testing.specification.causal_specification import CausalSpecification
 
 logger = logging.getLogger(__name__)
@@ -47,17 +47,14 @@ class CausalTestSuite(UserDict):
         self.data[base_test_case] = test_object
 
     def execute_test_suite(
-        self, data_collector: DataCollector, causal_specification: CausalSpecification
+        self, causal_specification: CausalSpecification, df: pd.DataFrame
     ) -> dict[str, CausalTestResult]:
         """Execute a suite of causal tests and return the results in a list
-        :param data_collector: The data collector to be used for the test_suite. Can be observational, experimental or
-         custom
-        :param causal_specification:
+        :param causal_specification: A causal specification object which wraps up the scenario and causal DAG.
+        :param df: A dataframe containing the test data.
         :return: A dictionary where each key is the name of the estimators specified and the values are lists of
                 causal_test_result objects
         """
-        if data_collector.data.empty:
-            raise ValueError("No data has been loaded. Please call load_data prior to executing a causal test case.")
         test_suite_results = {}
         for edge in self:
             logger.info("treatment: %s", edge.treatment_variable)
@@ -79,8 +76,9 @@ class CausalTestSuite(UserDict):
                         test.control_value,
                         minimal_adjustment_set,
                         test.outcome_variable.name,
+                        df=df,
                     )
-                    causal_test_result = test.execute_test(estimator, data_collector)
+                    causal_test_result = test.execute_test(estimator)
                     causal_test_results.append(causal_test_result)
 
                 results[estimator_class.__name__] = causal_test_results

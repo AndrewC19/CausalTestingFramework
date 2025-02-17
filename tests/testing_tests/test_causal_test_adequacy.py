@@ -138,7 +138,7 @@ class TestCausalTestAdequacy(unittest.TestCase):
             treatment_value=treatment_strategy,
             estimate_type="hazard_ratio",
         )
-        causal_test_result = causal_test_case.execute_test(estimation_model, None)
+        causal_test_result = causal_test_case.execute_test(estimation_model)
         adequacy_metric = DataAdequacy(causal_test_case, estimation_model, group_by="id")
         adequacy_metric.measure_adequacy()
         adequacy_dict = adequacy_metric.to_dict()

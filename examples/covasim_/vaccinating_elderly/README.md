@@ -13,15 +13,16 @@ four test cases: one focusing on each of the four previously mentioned outputs.
 
 Further details are provided in Section 5.3 (Prioritising the elderly for vaccination) of the paper.
 
-**Note**: this version of the CTF utilises the observational data collector in order to separate the software execution 
-and testing. Older versions of this framework simulate the data using the custom experimental data collector and the 
-`covasim` package (version 3.0.7) as outlined below. 
+>[!NOTE]
+>This version of the CTF uses observational data to separate the software execution and testing.
+Older versions of this framework simulate the data using a custom experimental data collector and the `covasim`
+package (version 3.0.7) as outlined below.
 
 ## How to run
 To run this case study:
 1. Ensure all project dependencies are installed by running `pip install .` from the top
 level of this directory (instructions are provided in the project README).
-2. Additionally, in order to run Covasim, install version 3.0.7 by running `pip install covasim==3.0.7`.
+2. If necessary, install version 3.0.7 by running `pip install covasim==3.0.7`.
 3. Change directory to `causal_testing/examples/covasim_/vaccinating_elderly`.
 4. Run the command `python example_vaccine.py`.
 

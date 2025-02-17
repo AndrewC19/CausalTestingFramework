@@ -106,7 +106,6 @@ system-under-test that is expected to cause a change to some output(s).
    :maxdepth: 1
    :caption: Module Descriptions
 
-   /modules/data_collector
    /modules/causal_specification
    /modules/causal_tests
 

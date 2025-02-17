@@ -6,7 +6,6 @@ from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.scenario import Scenario
 from causal_testing.specification.variable import Input, Output
 from causal_testing.specification.causal_specification import CausalSpecification
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.testing.causal_test_case import CausalTestCase
 from causal_testing.testing.causal_test_outcome import Positive, Negative, NoEffect
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
@@ -19,8 +18,8 @@ ROOT = os.path.realpath(os.path.dirname(__file__))
 
 
 def setup_test_case(verbose: bool = False):
-    """Run the causal test case for the effect of changing vaccine to prioritise elderly from an observational
-    data collector that was previously simulated.
+    """Run the causal test case for the effect of changing vaccine to prioritise elderly from observational
+    data that was previously simulated.
 
     :param verbose: Whether to print verbose details (causal test results).
     :return results_dict: A dictionary containing ATE, 95% CIs, and Test Pass/Fail
@@ -57,10 +56,8 @@ def setup_test_case(verbose: bool = False):
     # 4. Construct a causal specification from the scenario and causal DAG
     causal_specification = CausalSpecification(scenario, causal_dag)
 
-    # 5. Instantiate the observational data collector using the previously simulated data
+    # 5. Read the previously simulated data
     obs_df = pd.read_csv("simulated_data.csv")
-
-    data_collector = ObservationalDataCollector(scenario, obs_df)
 
     # 6. Express expected outcomes
     expected_outcome_effects = {
@@ -90,7 +87,7 @@ def setup_test_case(verbose: bool = False):
         )
 
         # 9. Execute test and save results in dict
-        causal_test_result = causal_test_case.execute_test(linear_regression_estimator, data_collector)
+        causal_test_result = causal_test_case.execute_test(linear_regression_estimator, obs_df)
 
         if verbose:
             logging.info("Causation:\n%s", causal_test_result)

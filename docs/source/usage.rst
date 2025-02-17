@@ -65,19 +65,23 @@ the given output and input and the desired effect. This information is the minim
 
 Before we can run our test case, we first need data. There are two ways to acquire this: 1. run the model with the
 specific input configurations we're interested in, 2. use data from previous model runs. For a small number of specific
-tests where accuracy is critical, the first approach will yield the best results. To do this, you need to instantiate
-the ``ExperimentalDataCollector`` class.
+tests where accuracy is critical, the first approach will yield the best results. To do this, you can use the
+`ExperimentalEstimator` class. This will run the system directly and calculate the causal effect estimate from this.
 
-Where there are many test cases using pre-existing data is likely to be faster. If the program's behaviour can be
+Where there are many test cases, using pre-existing data is likely to be faster. If the program's behaviour can be
 estimated statistically, the results should still be reliable as long as there is enough data for the estimator to work
 as intended. This will vary depending on the program and the estimator. To use this method, simply instantiate
-the ``ObservationalDataCollector`` class with the modelling scenario and a path to the CSV file containing the runtime
-data, e.g.
+one of the other estimator classes with a Pandas dataframe containing the runtime data, e.g.
 
 .. code-block:: python
-
-   obs_df = pd.read_csv('results/data.csv')
-   data_collector = ObservationalDataCollector(modelling_scenario, obs_df)
+   estimator = LinearRegressionEstimator(
+         treatment_variable,
+         treatment_value,
+         control_value,
+         minimal_adjustment_set,
+         outcome_variable,
+         df=pd.read_csv(observational_data_path),
+     )
 
 
 Whether using fresh or pre-existing data, a key aspect of causal inference is estimation. To actually execute a test, we
@@ -99,7 +103,7 @@ various information. Here, we simply assert that the observed result is (on aver
 
 .. code-block:: python
 
-   causal_test_result = causal_test_case.execute_test(estimation_model, data_collector)
+   causal_test_result = causal_test_case.execute_test(estimation_model)
    test_passes = causal_test_case.expected_causal_effect.apply(causal_test_result)
    assert test_passes, "Expected to see a positive change in y."
 

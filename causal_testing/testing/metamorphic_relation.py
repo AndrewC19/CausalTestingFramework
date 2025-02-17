@@ -4,7 +4,6 @@ defined in our ICST paper [https://eprints.whiterose.ac.uk/195317/].
 """
 
 from dataclasses import dataclass
-from abc import abstractmethod
 from typing import Iterable
 from itertools import combinations
 import argparse
@@ -13,11 +12,9 @@ import json
 from multiprocessing import Pool
 
 import networkx as nx
-import pandas as pd
-import numpy as np
 
 from causal_testing.specification.causal_specification import CausalDAG, Node
-from causal_testing.data_collection.data_collector import ExperimentalDataCollector
+from causal_testing.testing.base_test_case import BaseTestCase
 
 logger = logging.getLogger(__name__)
 
@@ -26,121 +23,20 @@ logger = logging.getLogger(__name__)
 class MetamorphicRelation:
     """Class representing a metamorphic relation."""
 
-    treatment_var: Node
-    output_var: Node
+    base_test_case: BaseTestCase
     adjustment_vars: Iterable[Node]
-    dag: CausalDAG
-    tests: Iterable = None
-
-    def generate_follow_up(self, n_tests: int, min_val: float, max_val: float, seed: int = 0):
-        """Generate numerical follow-up input configurations."""
-        np.random.seed(seed)
-
-        # Get set of variables to change, excluding the treatment itself
-        variables_to_change = {node for node in self.dag.graph.nodes if self.dag.graph.in_degree(node) == 0}
-        if self.adjustment_vars:
-            variables_to_change |= set(self.adjustment_vars)
-        if self.treatment_var in variables_to_change:
-            variables_to_change.remove(self.treatment_var)
-
-        # Assign random numerical values to the variables to change
-        test_inputs = pd.DataFrame(
-            np.random.randint(min_val, max_val, size=(n_tests, len(variables_to_change))),
-            columns=sorted(variables_to_change),
-        )
-
-        # Enumerate the possible source, follow-up pairs for the treatment
-        candidate_source_follow_up_pairs = np.array(list(combinations(range(int(min_val), int(max_val + 1)), 2)))
-
-        # Sample without replacement from the possible source, follow-up pairs
-        sampled_source_follow_up_indices = np.random.choice(
-            candidate_source_follow_up_pairs.shape[0], n_tests, replace=False
-        )
-
-        follow_up_input = f"{self.treatment_var}'"
-        source_follow_up_test_inputs = pd.DataFrame(
-            candidate_source_follow_up_pairs[sampled_source_follow_up_indices],
-            columns=sorted([self.treatment_var] + [follow_up_input]),
-        )
-        self.tests = [
-            MetamorphicTest(
-                source_inputs,
-                follow_up_inputs,
-                other_inputs,
-                self.output_var,
-                str(self),
-            )
-            for source_inputs, follow_up_inputs, other_inputs in zip(
-                source_follow_up_test_inputs[[self.treatment_var]].to_dict(orient="records"),
-                source_follow_up_test_inputs[[follow_up_input]]
-                .rename(columns={follow_up_input: self.treatment_var})
-                .to_dict(orient="records"),
-                (
-                    test_inputs.to_dict(orient="records")
-                    if not test_inputs.empty
-                    else [{}] * len(source_follow_up_test_inputs)
-                ),
-            )
-        ]
-
-    def execute_tests(self, data_collector: ExperimentalDataCollector):
-        """Execute the generated list of metamorphic tests, returning a dictionary of tests that pass and fail.
-
-        :param data_collector: An experimental data collector for the system-under-test.
-        """
-        test_results = {"pass": [], "fail": []}
-        for metamorphic_test in self.tests:
-            # Update the control and treatment configuration to take generated values for source and follow-up tests
-            control_input_config = metamorphic_test.source_inputs | metamorphic_test.other_inputs
-            treatment_input_config = metamorphic_test.follow_up_inputs | metamorphic_test.other_inputs
-            data_collector.control_input_configuration = control_input_config
-            data_collector.treatment_input_configuration = treatment_input_config
-            metamorphic_test_results_df = data_collector.collect_data()
-
-            # Apply assertion to control and treatment outputs
-            control_output = metamorphic_test_results_df.loc["control_0"][metamorphic_test.output]
-            treatment_output = metamorphic_test_results_df.loc["treatment_0"][metamorphic_test.output]
-
-            if not self.assertion(control_output, treatment_output):
-                test_results["fail"].append(metamorphic_test)
-            else:
-                test_results["pass"].append(metamorphic_test)
-        return test_results
-
-    @abstractmethod
-    def assertion(self, source_output, follow_up_output):
-        """An assertion that should be applied to an individual metamorphic test run."""
-
-    @abstractmethod
-    def to_json_stub(self, skip=True) -> dict:
-        """Convert to a JSON frontend stub string for user customisation"""
-
-    @abstractmethod
-    def test_oracle(self, test_results):
-        """A test oracle that assert whether the MR holds or not based on ALL test results.
-
-        This method must raise an assertion, not return a bool."""
 
     def __eq__(self, other):
         same_type = self.__class__ == other.__class__
-        same_treatment = self.treatment_var == other.treatment_var
-        same_output = self.output_var == other.output_var
+        same_treatment = self.base_test_case.treatment_variable == other.base_test_case.treatment_variable
+        same_outcome = self.base_test_case.outcome_variable == other.base_test_case.outcome_variable
+        same_effect = self.base_test_case.effect == other.base_test_case.effect
         same_adjustment_set = set(self.adjustment_vars) == set(other.adjustment_vars)
-        return same_type and same_treatment and same_output and same_adjustment_set
+        return same_type and same_treatment and same_outcome and same_effect and same_adjustment_set
 
 
 class ShouldCause(MetamorphicRelation):
     """Class representing a should cause metamorphic relation."""
-
-    def assertion(self, source_output, follow_up_output):
-        """If there is a causal effect, the outputs should not be the same."""
-        return source_output != follow_up_output
-
-    def test_oracle(self, test_results):
-        """A single passing test is sufficient to show presence of a causal effect."""
-        assert len(test_results["fail"]) < len(
-            self.tests
-        ), f"{str(self)}: {len(test_results['fail'])}/{len(self.tests)} tests failed."
 
     def to_json_stub(self, skip=True) -> dict:
         """Convert to a JSON frontend stub string for user customisation"""
@@ -149,14 +45,17 @@ class ShouldCause(MetamorphicRelation):
             "estimator": "LinearRegressionEstimator",
             "estimate_type": "coefficient",
             "effect": "direct",
-            "mutations": [self.treatment_var],
-            "expected_effect": {self.output_var: "SomeEffect"},
-            "formula": f"{self.output_var} ~ {' + '.join([self.treatment_var] + self.adjustment_vars)}",
+            "mutations": [self.base_test_case.treatment_variable],
+            "expected_effect": {self.base_test_case.outcome_variable: "SomeEffect"},
+            "formula": (
+                f"{self.base_test_case.outcome_variable} ~ "
+                f"{' + '.join([self.base_test_case.treatment_variable] + self.adjustment_vars)}"
+            ),
             "skip": skip,
         }
 
     def __str__(self):
-        formatted_str = f"{self.treatment_var} --> {self.output_var}"
+        formatted_str = f"{self.base_test_case.treatment_variable} --> {self.base_test_case.outcome_variable}"
         if self.adjustment_vars:
             formatted_str += f" | {self.adjustment_vars}"
         return formatted_str
@@ -165,16 +64,6 @@ class ShouldCause(MetamorphicRelation):
 class ShouldNotCause(MetamorphicRelation):
     """Class representing a should cause metamorphic relation."""
 
-    def assertion(self, source_output, follow_up_output):
-        """If there is a causal effect, the outputs should not be the same."""
-        return source_output == follow_up_output
-
-    def test_oracle(self, test_results):
-        """A single passing test is sufficient to show presence of a causal effect."""
-        assert (
-            len(test_results["fail"]) == 0
-        ), f"{str(self)}: {len(test_results['fail'])}/{len(self.tests)} tests failed."
-
     def to_json_stub(self, skip=True) -> dict:
         """Convert to a JSON frontend stub string for user customisation"""
         return {
@@ -182,38 +71,21 @@ class ShouldNotCause(MetamorphicRelation):
             "estimator": "LinearRegressionEstimator",
             "estimate_type": "coefficient",
             "effect": "direct",
-            "mutations": [self.treatment_var],
-            "expected_effect": {self.output_var: "NoEffect"},
-            "formula": f"{self.output_var} ~ {' + '.join([self.treatment_var] + self.adjustment_vars)}",
+            "mutations": [self.base_test_case.treatment_variable],
+            "expected_effect": {self.base_test_case.outcome_variable: "NoEffect"},
+            "formula": (
+                f"{self.base_test_case.outcome_variable} ~ "
+                f"{' + '.join([self.base_test_case.treatment_variable] + self.adjustment_vars)}"
+            ),
             "alpha": 0.05,
             "skip": skip,
         }
 
     def __str__(self):
-        formatted_str = f"{self.treatment_var} _||_ {self.output_var}"
+        formatted_str = f"{self.base_test_case.treatment_variable} _||_ {self.base_test_case.outcome_variable}"
         if self.adjustment_vars:
             formatted_str += f" | {self.adjustment_vars}"
         return formatted_str
-
-
-@dataclass(order=True)
-class MetamorphicTest:
-    """Class representing a metamorphic test case."""
-
-    source_inputs: dict
-    follow_up_inputs: dict
-    other_inputs: dict
-    output: str
-    relation: str
-
-    def __str__(self):
-        return (
-            f"Source inputs: {self.source_inputs}\n"
-            f"Follow-up inputs: {self.follow_up_inputs}\n"
-            f"Other inputs: {self.other_inputs}\n"
-            f"Output: {self.output}"
-            f"Metamorphic Relation: {self.relation}"
-        )
 
 
 def generate_metamorphic_relation(
@@ -241,30 +113,30 @@ def generate_metamorphic_relation(
         if u in nx.ancestors(dag.graph, v):
             adj_sets = dag.direct_effect_adjustment_sets([u], [v], nodes_to_ignore=nodes_to_ignore)
             if adj_sets:
-                metamorphic_relations.append(ShouldNotCause(u, v, list(adj_sets[0]), dag))
+                metamorphic_relations.append(ShouldNotCause(BaseTestCase(u, v), list(adj_sets[0])))
 
         # Case 2: V --> ... --> U
         elif v in nx.ancestors(dag.graph, u):
             adj_sets = dag.direct_effect_adjustment_sets([v], [u], nodes_to_ignore=nodes_to_ignore)
             if adj_sets:
-                metamorphic_relations.append(ShouldNotCause(v, u, list(adj_sets[0]), dag))
+                metamorphic_relations.append(ShouldNotCause(BaseTestCase(v, u), list(adj_sets[0])))
 
         # Case 3: V _||_ U (No directed walk from V to U but there may be a back-door path e.g. U <-- Z --> V).
         # Only make one MR since V _||_ U == U _||_ V
         else:
             adj_sets = dag.direct_effect_adjustment_sets([u], [v], nodes_to_ignore=nodes_to_ignore)
             if adj_sets:
-                metamorphic_relations.append(ShouldNotCause(u, v, list(adj_sets[0]), dag))
+                metamorphic_relations.append(ShouldNotCause(BaseTestCase(u, v), list(adj_sets[0])))
 
     # Create a ShouldCause relation for each edge (u, v) or (v, u)
     elif (u, v) in dag.graph.edges:
         adj_sets = dag.direct_effect_adjustment_sets([u], [v], nodes_to_ignore=nodes_to_ignore)
         if adj_sets:
-            metamorphic_relations.append(ShouldCause(u, v, list(adj_sets[0]), dag))
+            metamorphic_relations.append(ShouldCause(BaseTestCase(u, v), list(adj_sets[0])))
     else:
         adj_sets = dag.direct_effect_adjustment_sets([v], [u], nodes_to_ignore=nodes_to_ignore)
         if adj_sets:
-            metamorphic_relations.append(ShouldCause(v, u, list(adj_sets[0]), dag))
+            metamorphic_relations.append(ShouldCause(BaseTestCase(v, u), list(adj_sets[0])))
     return metamorphic_relations
 
 

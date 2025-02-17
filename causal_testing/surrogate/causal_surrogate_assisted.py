@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable
 import pandas as pd
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.specification.causal_specification import CausalSpecification
 from causal_testing.testing.base_test_case import BaseTestCase
 from causal_testing.estimation.cubic_spline_estimator import CubicSplineRegressionEstimator
@@ -73,21 +72,20 @@ class CausalSurrogateAssistedTestCase:
 
     def execute(
         self,
-        data_collector: ObservationalDataCollector,
+        df: pd.DataFrame,
         max_executions: int = 200,
         custom_data_aggregator: Callable[[dict, dict], dict] = None,
     ):
         """For this specific test case, a search algorithm is used to find the most contradictory point in the input
         space which is, therefore, most likely to indicate incorrect behaviour. This cadidate test case is run against
         the simulator, checked for faults and the result returned with collected data
-        :param data_collector: An ObservationalDataCollector which gathers data relevant to the specified scenario
+        :param df: An dataframe which contains data relevant to the specified scenario
         :param max_executions: Maximum number of simulator executions before exiting the search
         :param custom_data_aggregator:
         :return: tuple containing SimulationResult or str, execution number and collected data"""
-        data_collector.collect_data()
 
         for i in range(max_executions):
-            surrogate_models = self.generate_surrogates(self.specification, data_collector)
+            surrogate_models = self.generate_surrogates(self.specification, df)
             candidate_test_case, _, surrogate = self.search_algorithm.search(surrogate_models, self.specification)
 
             self.simulator.startup()
@@ -96,10 +94,10 @@ class CausalSurrogateAssistedTestCase:
             self.simulator.shutdown()
 
             if custom_data_aggregator is not None:
-                if data_collector.data is not None:
-                    data_collector.data = custom_data_aggregator(data_collector.data, test_result.data)
+                if df is not None:
+                    df = custom_data_aggregator(df, test_result.data)
             else:
-                data_collector.data = pd.concat([data_collector.data, test_result_df], ignore_index=True)
+                df = pd.concat([df, test_result_df], ignore_index=True)
             if test_result.fault:
                 print(
                     f"Fault found between {surrogate.treatment} causing {surrogate.outcome}. Contradiction with "
@@ -108,17 +106,17 @@ class CausalSurrogateAssistedTestCase:
                 test_result.relationship = (
                     f"{surrogate.treatment} -> {surrogate.outcome} expected {surrogate.expected_relationship}"
                 )
-                return test_result, i + 1, data_collector.data
+                return test_result, i + 1, df
 
         print("No fault found")
-        return "No fault found", i + 1, data_collector.data
+        return "No fault found", i + 1, df
 
     def generate_surrogates(
-        self, specification: CausalSpecification, data_collector: ObservationalDataCollector
+        self, specification: CausalSpecification, df: pd.DataFrame
     ) -> list[CubicSplineRegressionEstimator]:
         """Generate a surrogate model for each edge of the dag that specifies it is included in the DAG metadata.
         :param specification: The Causal Specification (combination of Scenario and Causal Dag)
-        :param data_collector: An ObservationalDataCollector which gathers data relevant to the specified scenario
+        :param df: An dataframe which contains data relevant to the specified scenario
         :return: A list of surrogate models
         """
         surrogate_models = []
@@ -139,7 +137,7 @@ class CausalSurrogateAssistedTestCase:
                     minimal_adjustment_set,
                     v,
                     4,
-                    df=data_collector.data,
+                    df=df,
                     expected_relationship=edge_metadata["expected"],
                 )
                 surrogate_models.append(surrogate)

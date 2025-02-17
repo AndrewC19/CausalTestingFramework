@@ -8,7 +8,6 @@ import numpy as np
 from causal_testing.specification.causal_specification import CausalSpecification, Scenario
 from causal_testing.specification.variable import Input, Output
 from causal_testing.specification.causal_dag import CausalDAG
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.testing.causal_test_case import CausalTestCase
 from causal_testing.testing.causal_test_outcome import ExactValue
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
@@ -83,17 +82,13 @@ class TestCausalTestExecution(unittest.TestCase):
 
         # 4. Create dummy test data and write to csv
         np.random.seed(1)
-        df = pd.DataFrame({"D": list(np.random.normal(60, 10, 1000))})  # D = exogenous
-        df["A"] = [1 if d > 50 else 0 for d in df["D"]]
-        df["C"] = df["D"] + (4 * (df["A"] + 2))  # C = (4*(A+2)) + D
-        self.observational_data_csv_path = os.path.join(self.temp_dir_path, "observational_data.csv")
-        df.to_csv(self.observational_data_csv_path, index=False)
+        self.df = pd.DataFrame({"D": list(np.random.normal(60, 10, 1000))})  # D = exogenous
+        self.df["A"] = [1 if d > 50 else 0 for d in self.df["D"]]
+        self.df["C"] = self.df["D"] + (4 * (self.df["A"] + 2))  # C = (4*(A+2)) + D
+        # self.observational_data_csv_path = os.path.join(self.temp_dir_path, "observational_data.csv")
+        # self.df.to_csv(self.observational_data_csv_path, index=False)
 
-        # 5. Create observational data collector
-        # Obsolete?
-        self.data_collector = ObservationalDataCollector(self.scenario, df)
-        self.data_collector.collect_data()
-        self.df = self.data_collector.collect_data()
+        # 5. Create minimal adjustment set
         self.minimal_adjustment_set = self.causal_dag.identification(self.base_test_case)
         # 6. Easier to access treatment and outcome values
         self.treatment_value = 1
@@ -126,7 +121,7 @@ class TestCausalTestExecution(unittest.TestCase):
             "C",
             self.df,
         )
-        causal_test_result = self.causal_test_case.execute_test(estimation_model, self.data_collector)
+        causal_test_result = self.causal_test_case.execute_test(estimation_model)
         pd.testing.assert_series_equal(causal_test_result.test_value.value, pd.Series(4.0), atol=1e-10)
 
     def test_execute_test_observational_linear_regression_estimator_direct_effect(self):
@@ -153,7 +148,7 @@ class TestCausalTestExecution(unittest.TestCase):
             "C",
             self.df,
         )
-        causal_test_result = causal_test_case.execute_test(estimation_model, self.data_collector)
+        causal_test_result = causal_test_case.execute_test(estimation_model)
         pd.testing.assert_series_equal(causal_test_result.test_value.value, pd.Series(4.0), atol=1e-10)
 
     def test_execute_test_observational_linear_regression_estimator_coefficient(self):
@@ -168,7 +163,7 @@ class TestCausalTestExecution(unittest.TestCase):
             self.df,
         )
         self.causal_test_case.estimate_type = "coefficient"
-        causal_test_result = self.causal_test_case.execute_test(estimation_model, self.data_collector)
+        causal_test_result = self.causal_test_case.execute_test(estimation_model)
         pd.testing.assert_series_equal(causal_test_result.test_value.value, pd.Series({"D": 0.0}), atol=1e-1)
 
     def test_execute_test_observational_linear_regression_estimator_risk_ratio(self):
@@ -183,7 +178,7 @@ class TestCausalTestExecution(unittest.TestCase):
             self.df,
         )
         self.causal_test_case.estimate_type = "risk_ratio"
-        causal_test_result = self.causal_test_case.execute_test(estimation_model, self.data_collector)
+        causal_test_result = self.causal_test_case.execute_test(estimation_model)
         pd.testing.assert_series_equal(causal_test_result.test_value.value, pd.Series(0.0), atol=1)
 
     def test_invalid_estimate_type(self):
@@ -199,7 +194,7 @@ class TestCausalTestExecution(unittest.TestCase):
         )
         self.causal_test_case.estimate_type = "invalid"
         with self.assertRaises(AttributeError):
-            self.causal_test_case.execute_test(estimation_model, self.data_collector)
+            self.causal_test_case.execute_test(estimation_model)
 
     def test_execute_test_observational_linear_regression_estimator_squared_term(self):
         """Check that executing the causal test case returns the correct results for dummy data with a squared term
@@ -213,5 +208,5 @@ class TestCausalTestExecution(unittest.TestCase):
             self.df,
             formula=f"C ~ A + {'+'.join(self.minimal_adjustment_set)} + (D ** 2)",
         )
-        causal_test_result = self.causal_test_case.execute_test(estimation_model, self.data_collector)
+        causal_test_result = self.causal_test_case.execute_test(estimation_model)
         pd.testing.assert_series_equal(causal_test_result.test_value.value, pd.Series(4.0), atol=1)

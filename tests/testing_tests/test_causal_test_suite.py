@@ -12,7 +12,6 @@ from causal_testing.testing.causal_test_outcome import ExactValue
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
 from causal_testing.estimation.logistic_regression_estimator import LogisticRegressionEstimator
 from causal_testing.specification.causal_specification import CausalSpecification, Scenario
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.specification.causal_dag import CausalDAG
 
 
@@ -64,8 +63,6 @@ class TestCausalTestSuite(unittest.TestCase):
         )
         self.causal_specification = CausalSpecification(self.scenario, self.causal_dag)
 
-        self.data_collector = ObservationalDataCollector(self.scenario, self.df)
-
     def tearDown(self) -> None:
         shutil.rmtree(self.temp_dir_path)
 
@@ -101,28 +98,8 @@ class TestCausalTestSuite(unittest.TestCase):
     def test_execute_test_suite_single_base_test_case(self):
         """Check that the test suite can return the correct results from dummy data for a single base_test-case"""
 
-        causal_test_results = self.test_suite.execute_test_suite(self.data_collector, self.causal_specification)
+        causal_test_results = self.test_suite.execute_test_suite(self.causal_specification, self.df)
         causal_test_case_result = causal_test_results[self.base_test_case]
         self.assertAlmostEqual(
             causal_test_case_result["LinearRegressionEstimator"][0].test_value.value[0], 4, delta=1e-10
         )
-
-    # Without CausalForestEstimator we now only have 2 estimators. Unfortunately LogicisticRegressionEstimator does not
-    # currently work with TestSuite. So for now removed test
-
-    # def test_execute_test_suite_multiple_estimators(self):
-    #     """Check that executing a test suite with multiple estimators returns correct results for the dummy data
-    #     for each estimator
-    #     """
-    #     estimators = [LinearRegressionEstimator, LogisticRegressionEstimator]
-    #     test_suite_2_estimators = CausalTestSuite()
-    #     test_list = [CausalTestCase(self.base_test_case, self.expected_causal_effect, 0, 1)]
-    #     test_suite_2_estimators.add_test_object(
-    #         base_test_case=self.base_test_case, causal_test_case_list=test_list, estimators_classes=estimators
-    #     )
-    #     causal_test_results = test_suite_2_estimators.execute_test_suite(self.data_collector, self.causal_specification)
-    #     causal_test_case_result = causal_test_results[self.base_test_case]
-    #     linear_regression_result = causal_test_case_result["LinearRegressionEstimator"][0]
-    #     logistic_regression_estimator = causal_test_case_result["LogisticRegressionEstimator"][0]
-    #     self.assertAlmostEqual(linear_regression_result.test_value.value, 4, delta=1e-1)
-    #     self.assertAlmostEqual(logistic_regression_estimator.test_value.value, 4, delta=1e-1)

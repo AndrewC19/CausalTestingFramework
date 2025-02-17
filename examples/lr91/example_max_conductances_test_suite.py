@@ -5,7 +5,6 @@ from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.scenario import Scenario
 from causal_testing.specification.variable import Input, Output
 from causal_testing.specification.causal_specification import CausalSpecification
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.testing.causal_test_case import CausalTestCase
 from causal_testing.testing.causal_test_outcome import Positive, Negative, NoEffect
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
@@ -143,11 +142,8 @@ def effects_on_APD90(observational_data_path, test_suite):
     # 5. Create a causal specification from the scenario and causal DAG
     causal_specification = CausalSpecification(scenario, causal_dag)
 
-    # 7. Create a data collector
-    data_collector = ObservationalDataCollector(scenario, pd.read_csv(observational_data_path))
-
     # 8. Run the causal test suite
-    causal_test_results = test_suite.execute_test_suite(data_collector, causal_specification)
+    causal_test_results = test_suite.execute_test_suite(causal_specification, pd.read_csv(observational_data_path))
     return causal_test_results
 
 

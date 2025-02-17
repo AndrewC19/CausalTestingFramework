@@ -5,7 +5,6 @@ from causal_testing.specification.causal_dag import CausalDAG
 from causal_testing.specification.scenario import Scenario
 from causal_testing.specification.variable import Input, Output
 from causal_testing.specification.causal_specification import CausalSpecification
-from causal_testing.data_collection.data_collector import ObservationalDataCollector
 from causal_testing.testing.causal_test_case import CausalTestCase
 from causal_testing.testing.causal_test_outcome import Positive, Negative, NoEffect
 from causal_testing.estimation.linear_regression_estimator import LinearRegressionEstimator
@@ -134,17 +133,19 @@ def effects_on_APD90(observational_data_path, treatment_var, control_val, treatm
         treatment_value=treatment_val,
     )
 
-    # 7. Create a data collector
-    data_collector = ObservationalDataCollector(scenario, pd.read_csv(observational_data_path))
-
     # 8. Obtain the minimal adjustment set from the causal DAG
     minimal_adjustment_set = causal_dag.identification(base_test_case)
     linear_regression_estimator = LinearRegressionEstimator(
-        treatment_var.name, treatment_val, control_val, minimal_adjustment_set, "APD90"
+        treatment_var.name,
+        treatment_val,
+        control_val,
+        minimal_adjustment_set,
+        "APD90",
+        df=pd.read_csv(observational_data_path),
     )
 
     # 9. Run the causal test and print results
-    causal_test_result = causal_test_case.execute_test(linear_regression_estimator, data_collector)
+    causal_test_result = causal_test_case.execute_test(linear_regression_estimator)
     logger.info("%s", causal_test_result)
     return causal_test_result.test_value.value, causal_test_result.confidence_intervals
 

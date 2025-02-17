@@ -8,7 +8,6 @@ from causal_testing.testing.causal_test_outcome import CausalTestOutcome
 from causal_testing.testing.base_test_case import BaseTestCase
 from causal_testing.estimation.abstract_estimator import Estimator
 from causal_testing.testing.causal_test_result import CausalTestResult, TestValue
-from causal_testing.data_collection.data_collector import DataCollector
 
 
 logger = logging.getLogger(__name__)
@@ -58,25 +57,13 @@ class CausalTestCase:
         else:
             self.effect_modifier_configuration = {}
 
-    def execute_test(self, estimator: type(Estimator), data_collector: DataCollector) -> CausalTestResult:
+    def execute_test(self, estimator: type(Estimator)) -> CausalTestResult:
         """Execute a causal test case and return the causal test result.
 
-        :param estimator: A reference to an Estimator class.
-        :param data_collector: The data collector to be used which provides a dataframe for the Estimator
+        :param estimator: An Estimator class object
         :return causal_test_result: A CausalTestResult for the executed causal test case.
         """
-        if estimator.df is None:
-            estimator.df = data_collector.collect_data()
 
-        causal_test_result = self._return_causal_test_results(estimator)
-        return causal_test_result
-
-    def _return_causal_test_results(self, estimator) -> CausalTestResult:
-        """Depending on the estimator used, calculate the 95% confidence intervals and return in a causal_test_result
-
-        :param estimator: An Estimator class object
-        :return: a CausalTestResult object containing the confidence intervals
-        """
         if not hasattr(estimator, f"estimate_{self.estimate_type}"):
             raise AttributeError(f"{estimator.__class__} has no {self.estimate_type} method.")
         estimate_effect = getattr(estimator, f"estimate_{self.estimate_type}")
